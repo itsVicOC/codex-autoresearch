@@ -227,6 +227,7 @@ Codex leitet alles aus Ihrem Satz und Ihrem Repository ab. Sie schreiben keine K
 
 Vor dem Start zeigt Codex Ihnen immer, was es gefunden hat, und bittet um Bestaetigung.
 Mindestens eine Runde Bestaetigung, bis zu fuenf bei Bedarf. Dann sagen Sie "go" und koennen sich zuruecklehnen.
+Fuer wirklich unbeaufsichtigte Laeufe sollten Sie Codex CLI mit Freigabe-/Sandbox-Einstellungen starten, die `git commit` oder `git revert` nicht unterbrechen. In einem wegwerfbaren oder anderweitig vertrauenswuerdigen Repository ist es am einfachsten, Codex weitergehende Berechtigungen zu geben.
 
 ### Doppelte Verifikation
 

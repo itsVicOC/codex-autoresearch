@@ -227,6 +227,7 @@ O Codex infere tudo a partir da sua frase e do seu repositorio. Voce nunca escre
 
 Antes de comecar, o Codex sempre mostra o que encontrou e pede confirmacao.
 Minimo uma rodada de confirmacao, ate cinco se necessario. Depois voce diz "go" e pode ir embora.
+Para execucoes realmente sem supervisao, inicie o Codex CLI com configuracoes de aprovacao / sandbox que nao interrompam `git commit` nem `git revert`. Em um repositorio descartavel ou confiavel, dar permissoes mais amplas ao Codex e a opcao mais simples.
 
 ### Verificacao de duplo portao
 

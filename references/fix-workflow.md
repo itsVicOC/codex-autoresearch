@@ -90,10 +90,10 @@ Run the guard if configured.
 
 ### Phase 8: Log
 
-Append to:
+Append to `fix-results.tsv` using the generic schema defined in `references/results-logging.md`:
 
 ```tsv
-iteration	category	target	delta	guard	status	description
+iteration	commit	metric	delta	guard	status	description
 ```
 
 ## Output Directory

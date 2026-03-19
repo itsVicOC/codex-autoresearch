@@ -227,6 +227,7 @@ Codex infiere todo a partir de tu frase y tu repositorio. Nunca escribes configu
 
 Antes de empezar, Codex siempre te muestra lo que encontro y pide confirmacion.
 Minimo una ronda de confirmacion, hasta cinco si es necesario. Luego dices "go" y te puedes ir.
+Para ejecuciones realmente desatendidas, inicia Codex CLI con ajustes de aprobacion / sandbox que no interrumpan `git commit` ni `git revert`. En un repositorio desechable o de confianza, dar a Codex permisos mas amplios es la opcion mas simple.
 
 ### Verificacion de doble puerta
 

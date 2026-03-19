@@ -227,6 +227,7 @@ Codex infers everything from your sentence and your repo. You never write config
 
 Before starting, Codex always shows you what it found and asks you to confirm.
 One round of confirmation minimum, up to five if needed. Then you say "go" and walk away.
+For truly unattended runs, start Codex CLI with approvals / sandbox settings that will not interrupt git commit or revert commands. In a disposable or otherwise trusted repo, giving Codex fuller permissions is the simplest option.
 
 ### Dual-gate verification
 

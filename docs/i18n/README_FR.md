@@ -228,6 +228,7 @@ Codex infere tout a partir de votre phrase et de votre depot. Vous n'ecrivez jam
 
 Avant de demarrer, Codex vous montre toujours ce qu'il a trouve et demande confirmation.
 Un minimum d'un echange, jusqu'a cinq si necessaire. Ensuite vous dites "go" et vous pouvez partir.
+Pour un vrai fonctionnement sans surveillance, lancez Codex CLI avec des reglages d'approbation / sandbox qui n'interrompront pas `git commit` ou `git revert`. Dans un depot jetable ou autrement fiable, donner plus de permissions a Codex est l'option la plus simple.
 
 ### Verification a double porte
 

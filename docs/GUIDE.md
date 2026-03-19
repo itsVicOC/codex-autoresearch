@@ -58,6 +58,7 @@ For unattended runs, the wizard may also ask one safety question about rollback 
 ### Phase 2: Execution (fully autonomous)
 
 Once you say "go" (or "start", "launch", or any clear approval), the loop takes over. From this point on, Codex will never pause to ask you anything. If it hits ambiguity, it applies best practices and keeps going. You can walk away, go to sleep, or work on something else.
+For that to hold in practice, launch Codex CLI with approvals / sandbox settings that will not interrupt git commit or revert commands. In a disposable or otherwise trusted repo, giving Codex fuller permissions is the simplest option.
 
 The only things that stop the loop:
 
@@ -65,7 +66,7 @@ The only things that stop the loop:
 - The iteration cap is reached (if you set one)
 - A hard blocker appears (verify command broken, repo corrupted, disk full, same crash 5+ times)
 
-This boundary is absolute. Everything before "go" can ask. Everything after "go" is silent.
+This boundary is absolute at the skill level. Everything before "go" can ask. Everything after "go" is silent.
 
 ---
 
@@ -515,7 +516,8 @@ Parallel mode is suggested during the wizard when the environment has enough res
 
 If you interrupt a run and come back later, Codex can resume from where you left off:
 
-- It checks for `research-results.tsv`, `autoresearch-lessons.md`, and recent experiment commits.
+- It first validates `autoresearch-state.json`, the primary recovery source, against the retained-state summary reconstructed from `research-results.tsv`.
+- `autoresearch-lessons.md` is still read as context, but it is not the primary resume source.
 - If state is consistent: resumes immediately, no wizard needed.
 - If state is partially consistent: runs a mini-wizard (1 round) to re-confirm.
 - If state is inconsistent or the goal has changed: starts fresh, renames old logs.
