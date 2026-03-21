@@ -156,6 +156,12 @@ security/{YYMMDD}-{HHMM}-{slug}/
 
 ### ship
 
+Ship mode also persists the generic iterating-run artifacts:
+
+- `research-results.tsv`
+- `autoresearch-lessons.md` (if lessons were extracted)
+- `autoresearch-state.json`
+
 Output directory:
 
 ```text

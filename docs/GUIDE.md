@@ -346,6 +346,8 @@ Reference: `references/security-workflow.md`
 
 Gated release verification. Auto-detects what you are shipping (PR, deployment, release) and generates a checklist.
 
+Under the hood, ship mode still resolves a shipment scope, a readiness metric, and a mechanical verify command before the managed runtime launches.
+
 ```
 You:   $codex-autoresearch
        Ship it

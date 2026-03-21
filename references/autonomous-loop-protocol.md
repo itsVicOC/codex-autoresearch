@@ -56,7 +56,7 @@ Launch-gate interpretation:
 
 Exec-mode exception:
 - Do not resume a prior run.
-- Rename prior persistent `research-results.tsv` / `autoresearch-state.json` artifacts to `.prev` and start fresh.
+- Rename prior persistent run-control artifacts to `.prev` and start fresh.
 - Ignore any old exec scratch state except for cleanup.
 
 ### Run Artifact Initialization

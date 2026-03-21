@@ -249,6 +249,9 @@ def archive_interactive_fresh_start_artifacts(
     repo: Path,
     results_path: Path,
     state_path_arg: str | None,
+    launch_path: Path,
+    runtime_path: Path,
+    log_path: Path,
     mode: str,
 ) -> list[str]:
     if mode == "exec":
@@ -263,6 +266,15 @@ def archive_interactive_fresh_start_artifacts(
     archived_state = archive_path_to_prev(state_path)
     if archived_state is not None:
         archived.append(str(archived_state))
+    archived_launch = archive_path_to_prev(launch_path)
+    if archived_launch is not None:
+        archived.append(str(archived_launch))
+    archived_runtime = archive_path_to_prev(runtime_path)
+    if archived_runtime is not None:
+        archived.append(str(archived_runtime))
+    archived_log = archive_path_to_prev(log_path)
+    if archived_log is not None:
+        archived.append(str(archived_log))
     return archived
 
 
@@ -395,13 +407,19 @@ def start_runtime(args: argparse.Namespace) -> dict[str, Any]:
 
 def launch_and_start_runtime(args: argparse.Namespace) -> dict[str, Any]:
     archived_paths: list[str] = []
+    repo = resolve_repo_path(args.repo)
+    launch_path = resolve_repo_relative(repo, args.launch_path, default_launch_manifest_path(repo))
+    runtime_path = resolve_repo_relative(repo, args.runtime_path, default_runtime_state_path(repo))
+    log_path = resolve_repo_relative(repo, args.log_path, default_runtime_log_path(repo))
     if args.fresh_start:
-        repo = resolve_repo_path(args.repo)
         results_path = resolve_repo_relative(repo, args.results_path, repo / DEFAULT_RESULTS_PATH)
         archived_paths = archive_interactive_fresh_start_artifacts(
             repo=repo,
             results_path=results_path,
             state_path_arg=args.state_path,
+            launch_path=launch_path,
+            runtime_path=runtime_path,
+            log_path=log_path,
             mode=args.mode,
         )
         args.force = True

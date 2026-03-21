@@ -359,6 +359,8 @@ You:   Report first, and yes cover auth too.
 
 Gated release verification. Auto-detects what you are shipping (PR, deployment, release).
 
+Internally, ship mode still derives a shipment scope, a readiness metric, and a mechanical verify command from the checklist before launch.
+
 ```
 You:   Ship it
 

@@ -2816,6 +2816,8 @@ class AutoresearchScriptsTest(unittest.TestCase):
             old_results = tmpdir / "research-results.tsv"
             old_state = tmpdir / "autoresearch-state.json"
             old_launch = tmpdir / "autoresearch-launch.json"
+            old_runtime = tmpdir / "autoresearch-runtime.json"
+            old_runtime_log = tmpdir / "autoresearch-runtime.log"
 
             old_results.write_text(
                 "iteration\tcommit\tmetric\tdelta\tguard\tstatus\tdescription\n"
@@ -2870,6 +2872,11 @@ class AutoresearchScriptsTest(unittest.TestCase):
                 json.dumps({"original_goal": "stale manifest"}, indent=2) + "\n",
                 encoding="utf-8",
             )
+            old_runtime.write_text(
+                json.dumps({"status": "terminal", "pid": 12345}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            old_runtime_log.write_text("old runtime log\n", encoding="utf-8")
 
             launched = self.launch_runtime(
                 tmpdir,
@@ -2885,11 +2892,17 @@ class AutoresearchScriptsTest(unittest.TestCase):
                     [
                         str((tmpdir / "research-results.prev.tsv").resolve()),
                         str((tmpdir / "autoresearch-state.prev.json").resolve()),
+                        str((tmpdir / "autoresearch-launch.prev.json").resolve()),
+                        str((tmpdir / "autoresearch-runtime.prev.json").resolve()),
+                        str((tmpdir / "autoresearch-runtime.prev.log").resolve()),
                     ]
                 ),
             )
             self.assertTrue((tmpdir / "research-results.prev.tsv").exists())
             self.assertTrue((tmpdir / "autoresearch-state.prev.json").exists())
+            self.assertTrue((tmpdir / "autoresearch-launch.prev.json").exists())
+            self.assertTrue((tmpdir / "autoresearch-runtime.prev.json").exists())
+            self.assertTrue((tmpdir / "autoresearch-runtime.prev.log").exists())
             manifest = json.loads((tmpdir / "autoresearch-launch.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["original_goal"], "New goal")
 

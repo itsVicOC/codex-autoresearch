@@ -43,8 +43,22 @@ Convert "ready enough" into a gated ship process:
 If type or target is missing, collect:
 
 - shipment type,
+- target artifact or destination,
 - run mode,
 - monitoring duration.
+
+## Generic Launch Contract
+
+Ship mode still launches through the same managed runtime as the other interactive iterating modes. Before `go`, the launch manifest must resolve these generic fields:
+
+- `Goal` -- ship the selected target safely,
+- `Scope` -- files, configs, scripts, and artifacts that may be edited to satisfy the checklist,
+- `Metric` -- checklist readiness score (or another mechanical pass-count score),
+- `Direction` -- `higher`,
+- `Verify` -- command or scripted evaluation that emits the current readiness score and fails non-zero when the check crashes,
+- `Guard` (optional) -- smoke check that must always stay green while preparing the shipment.
+
+The user should not see those raw field names, but the runtime still depends on them being confirmed before launch.
 
 ## Shipment Types
 
@@ -72,6 +86,11 @@ Assess current readiness and missing pieces.
 
 Generate mechanically verifiable gates.
 
+Convert the checklist into a numeric readiness score so the generic loop can compare iterations. Preferred forms:
+
+- percentage of required gates currently passing, or
+- count of required gates currently passing.
+
 Examples:
 
 - tests passing,
@@ -84,6 +103,13 @@ Examples:
 ### Phase 4: Prepare
 
 If checklist items fail, iterate on the highest-value failing item first.
+
+This phase uses the generic improve-verify-decide loop:
+
+- edit only within the shipment scope,
+- re-run the ship verify command,
+- keep or discard based on whether the readiness score improved,
+- extract lessons and log the result like any other interactive iterating mode.
 
 ### Phase 5: Dry-Run
 
@@ -104,6 +130,12 @@ Confirm the ship landed and the target is healthy.
 ### Phase 8: Log
 
 Append a shipment record.
+
+In addition to the ship-specific output directory, ship mode still writes the generic iterating-run artifacts:
+
+- `research-results.tsv`
+- `autoresearch-lessons.md`
+- `autoresearch-state.json`
 
 ## Output Directory
 

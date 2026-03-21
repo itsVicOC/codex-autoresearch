@@ -134,7 +134,7 @@ When JSON exists but the helper reports `mini_wizard`:
    - resume from JSON state, or
    - start fresh and archive old artifacts.
 3. If resuming, use JSON `config` as the authoritative config and re-confirm it in a single block.
-4. If starting fresh, archive prior artifacts with `.prev` suffixes and proceed with the full wizard. In the managed-runtime path, this should happen through `autoresearch_runtime_ctl.py launch --fresh-start ...`.
+4. If starting fresh, archive prior persistent run-control artifacts with `.prev` suffixes and proceed with the full wizard. In the managed-runtime path, this should happen through `autoresearch_runtime_ctl.py launch --fresh-start ...`.
 
 ### Priority 3: TSV Fallback
 
@@ -154,7 +154,7 @@ When JSON is missing or unusable but the helper reports `tsv_fallback`:
 When the helper reports `fresh_start`:
 
 1. Proceed with the normal wizard flow.
-2. Rename prior `research-results.tsv` / `autoresearch-state.json` files to `.prev` variants if they exist. In the managed-runtime path, this archival is performed by `autoresearch_runtime_ctl.py launch --fresh-start ...`.
+2. Rename prior persistent run-control artifacts to `.prev` variants if they exist. In the managed-runtime path, this archival is performed by `autoresearch_runtime_ctl.py launch --fresh-start ...`. This includes `research-results.tsv`, `autoresearch-state.json`, `autoresearch-launch.json`, `autoresearch-runtime.json`, and `autoresearch-runtime.log`.
 3. Keep `autoresearch-lessons.md` unless it is clearly corrupt.
 
 ## Edge Cases
@@ -169,7 +169,7 @@ If `research-results.tsv` is missing a baseline row, has a broken header, or con
 
 ### Different Goal
 
-If the recovered config clearly belongs to a different goal than the current request, start fresh and archive the old artifacts to `.prev` through `autoresearch_runtime_ctl.py launch --fresh-start ...`.
+If the recovered config clearly belongs to a different goal than the current request, start fresh and archive the old run-control artifacts to `.prev` through `autoresearch_runtime_ctl.py launch --fresh-start ...`.
 
 ## Session Splitting
 

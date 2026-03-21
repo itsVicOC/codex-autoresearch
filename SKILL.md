@@ -89,14 +89,14 @@ If required fields are missing, use the wizard contract in `references/interacti
 ## Single Entry Runtime
 
 - `$codex-autoresearch` is the only primary human-facing entrypoint.
-- For a new interactive run, scan the repo, ask the confirmation questions, then when the user says `go` call `autoresearch_runtime_ctl.py launch` to persist the confirmed launch manifest and start the detached runtime controller in one step. If the mini-wizard outcome is "fresh start", call `autoresearch_runtime_ctl.py launch --fresh-start` so prior persistent results/state artifacts are archived as part of the same handoff.
+- For a new interactive run, scan the repo, ask the confirmation questions, then when the user says `go` call `autoresearch_runtime_ctl.py launch` to persist the confirmed launch manifest and start the detached runtime controller in one step. If the mini-wizard outcome is "fresh start", call `autoresearch_runtime_ctl.py launch --fresh-start` so prior persistent run-control artifacts are archived as part of the same handoff.
 - For `status`, `stop`, or `resume` requests, stay on the same skill entry and use the runtime control scripts instead of asking the user to switch commands.
 - `exec` remains the advanced / CI path. It is fully specified upfront and does not use the interactive handoff.
 
 ## Hard Rules
 
 1. **Ask before act for new interactive launches.** For `loop`, `debug`, `fix`, `security`, and `ship`, ALWAYS scan the repo and ask at least one round of clarifying questions before creating a new launch manifest. `exec` mode is the exception: it is fully configured upfront and must not stop for a launch question.
-2. **Handoff to the runtime after launch approval.** In interactive modes, once the user says "go" (or equivalent: "start", "launch", or any clear approval), call `autoresearch_runtime_ctl.py launch` so the confirmed launch manifest and detached runtime are created as a single script-level action. If the chosen path is a fresh start after recovery analysis, use `autoresearch_runtime_ctl.py launch --fresh-start` so stale persistent artifacts are archived automatically. Do not keep the long-running loop in the same foreground turn. `exec` mode has no launch question; once safety checks pass, it begins immediately.
+2. **Handoff to the runtime after launch approval.** In interactive modes, once the user says "go" (or equivalent: "start", "launch", or any clear approval), call `autoresearch_runtime_ctl.py launch` so the confirmed launch manifest and detached runtime are created as a single script-level action. If the chosen path is a fresh start after recovery analysis, use `autoresearch_runtime_ctl.py launch --fresh-start` so stale persistent run-control artifacts are archived automatically. Do not keep the long-running loop in the same foreground turn. `exec` mode has no launch question; once safety checks pass, it begins immediately.
 3. **Never ask after launch.** Once the launch manifest exists and the runtime is active, do not pause mid-run to ask the user anything -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity during the loop, apply best practices and keep going. The user may be asleep.
 4. Read all in-scope files before the first write.
 5. One focused change per iteration.

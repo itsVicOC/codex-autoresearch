@@ -110,7 +110,7 @@ If the chosen path is **Fresh start** after recovery analysis, the handoff shoul
 python3 <skill-root>/scripts/autoresearch_runtime_ctl.py launch --fresh-start ...
 ```
 
-This archives prior persistent `research-results.tsv` / `autoresearch-state.json` artifacts to `.prev` before the new managed run begins.
+This archives prior persistent run-control artifacts to `.prev` before the new managed run begins, including `research-results.tsv`, `autoresearch-state.json`, `autoresearch-launch.json`, `autoresearch-runtime.json`, and `autoresearch-runtime.log`.
 
 ## Question Reference
 
@@ -220,7 +220,13 @@ The wizard internally maps the conversation to these fields (the user never sees
 ### ship
 
 - Shipment type -- auto-detected or asked
+- Target -- inferred or asked
+- Scope -- inferred from the target artifact, release files, deployment config, and any checklist-related files that may need edits
+- Metric -- checklist readiness score (or another mechanical pass-count score)
+- Direction -- `higher`
+- Verify -- Codex proposes a command or script that evaluates the checklist and emits the readiness score
 - Run mode -- ask: "Dry run first, or ship directly?"
+- Monitor -- ask how long to monitor after ship when relevant
 
 ### exec
 
@@ -256,6 +262,9 @@ When `session-resume-protocol.md` detects a prior run with a valid `autoresearch
    - **Resume:** use the JSON `config` as the authoritative source. Briefly confirm scope, metric, and verify command in a single confirmation block.
    - **Fresh start:** archive old artifacts with `.prev` suffixes and proceed with the full wizard.
 3. If the user chooses to resume, present a condensed confirmation summary (same format as Step 3 above but sourced from JSON `config` instead of repo scanning).
-4. The user replies "go" and the loop starts via `autoresearch_runtime_ctl.py launch --fresh-start ...`. No further rounds.
+4. The user replies "go" and the loop starts immediately:
+   - if they chose resume, call `autoresearch_runtime_ctl.py launch ...`
+   - if they chose fresh start, call `autoresearch_runtime_ctl.py launch --fresh-start ...`
+   No further rounds.
 
 The mini-wizard respects the same two-phase boundary: all questions happen before launch.
