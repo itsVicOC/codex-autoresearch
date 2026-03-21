@@ -153,6 +153,7 @@ def main() -> int:
             run_tag=source_payload.get("run_tag") or parsed.metadata.get("run_tag"),
             config=source_payload.get("config", {"direction": direction}),
             summary=reconstructed,
+            supervisor=source_payload.get("supervisor"),
         )
         write_json_atomic(state_path, repaired_payload)
         repaired = True

@@ -51,6 +51,8 @@ required_scripts=(
   "$ROOT/scripts/autoresearch_init_run.py"
   "$ROOT/scripts/autoresearch_record_iteration.py"
   "$ROOT/scripts/autoresearch_resume_check.py"
+  "$ROOT/scripts/autoresearch_supervisor_status.py"
+  "$ROOT/scripts/autoresearch_supervise.sh"
   "$ROOT/scripts/autoresearch_select_parallel_batch.py"
   "$ROOT/scripts/check_skill_invariants.py"
   "$ROOT/scripts/run_skill_e2e.sh"

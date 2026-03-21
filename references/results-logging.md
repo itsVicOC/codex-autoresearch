@@ -46,7 +46,7 @@ iteration	commit	metric	delta	guard	status	description
 | Column | Meaning |
 |--------|---------|
 | `iteration` | Integer main iteration counter starting at `0` for the baseline. Parallel worker detail rows use suffix notation (`5a`, `5b`, `5c`) |
-| `commit` | Short hash for kept or attempted commit, `-` if reverted or not committed |
+| `commit` | Short hash for the kept or attempted commit. Use `-` only for meta rows that did not test a committed trial (for example `pivot`, `search`, `split`, or a strategy-only `refine`) |
 | `metric` | Parsed metric value for that row's attempt or recalibration |
 | `delta` | `metric - retained_metric_before_row` |
 | `guard` | `pass`, `fail`, or `-` |
@@ -76,9 +76,9 @@ iteration	commit	metric	delta	guard	status	description
 iteration	commit	metric	delta	guard	status	description
 0	a1b2c3d	14	0	-	baseline	current pytest failure count
 1	b2c3d4e	9	-5	pass	keep	reduce fixture startup overhead
-2	-	11	+2	-	discard	expand retries in API client
-3	-	0	0	-	crash	refactor parser with bad import
-4	-	9	0	fail	discard	inline auth cache but break regression guard
+2	c3d4e5f	11	+2	-	discard	expand retries in API client
+3	d4e5f6a	0	0	-	crash	refactor parser with bad import
+4	e5f6a7b	9	0	fail	discard	inline auth cache but break regression guard
 ```
 
 ## Parallel Batch Notation
@@ -112,6 +112,8 @@ Define `<skill-root>` as the directory that contains the loaded `SKILL.md`. In t
   Logs worker rows, appends the main batch row, and updates JSON state once per batch.
 - `python3 <skill-root>/scripts/autoresearch_exec_state.py`
   Prints the deterministic exec scratch-state path under `/tmp` and cleans it up on `--cleanup`.
+- `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
+  Computes whether an external overnight wrapper should relaunch, stop, or ask for human help.
 
 In exec mode, the helper scripts keep JSON state in scratch storage by default instead of repo-root `autoresearch-state.json`. Clean that scratch state before exiting so exec persists only `research-results.tsv`.
 

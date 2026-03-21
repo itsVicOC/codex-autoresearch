@@ -517,8 +517,9 @@ def build_state_payload(
     run_tag: str | None,
     config: dict[str, Any],
     summary: dict[str, Any],
+    supervisor: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    payload = {
         "version": 1,
         "run_tag": run_tag or "",
         "mode": mode,
@@ -544,6 +545,9 @@ def build_state_payload(
         },
         "updated_at": utc_now(),
     }
+    if supervisor is not None:
+        payload["supervisor"] = deepcopy(supervisor)
+    return payload
 
 
 def require_consistent_state(

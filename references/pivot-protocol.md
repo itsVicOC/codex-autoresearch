@@ -116,8 +116,8 @@ The `description` column should include:
 iteration	commit	metric	delta	guard	status	description
 0	a1b2c3d	47	0	-	baseline	initial any count
 1	b2c3d4e	41	-6	pass	keep	type-narrow auth module
-2	-	43	+2	-	discard	generic wrapper attempt
-3	-	45	+4	-	discard	broader type union
+2	c3d4e5f	43	+2	-	discard	generic wrapper attempt
+3	d4e5f6a	45	+4	-	discard	broader type union
 4	-	41	0	-	refine	[REFINE] shifting from auth to api layer
 5	c3d4e5f	38	-3	pass	keep	narrow api response handlers
 ```

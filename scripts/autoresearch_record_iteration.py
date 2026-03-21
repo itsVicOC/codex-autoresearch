@@ -22,6 +22,7 @@ from autoresearch_helpers import (
 
 
 STATUSES = ["keep", "discard", "crash", "no-op", "blocked", "drift", "refine", "pivot", "search", "split"]
+TRIAL_COMMIT_STATUSES = {"keep", "discard", "crash"}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -66,8 +67,13 @@ def main() -> int:
             raise AutoresearchError(f"--metric is required for status {args.status}")
         metric = parse_decimal(args.metric, "metric")
 
-    if args.status == "keep" and args.commit == "-":
-        raise AutoresearchError("Keep iterations must provide --commit.")
+    requires_trial_commit = args.status in TRIAL_COMMIT_STATUSES or (
+        args.status == "refine" and (args.metric is not None or args.guard != "-")
+    )
+    if requires_trial_commit and args.commit == "-":
+        raise AutoresearchError(
+            f"Status {args.status} must provide --commit to preserve trial provenance."
+        )
     if args.status == "keep" and not improvement(metric, current_metric, direction):
         raise AutoresearchError("Keep iterations must improve over the retained metric.")
 
@@ -148,6 +154,7 @@ def main() -> int:
         run_tag=new_payload.get("run_tag") or None,
         config=new_payload["config"],
         summary=rewritten_summary,
+        supervisor=new_payload.get("supervisor"),
     )
     write_json_atomic(state_path, final_payload)
 

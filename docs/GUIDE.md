@@ -109,6 +109,7 @@ Run artifacts should be updated by the helper scripts rather than hand-editing T
 - `python3 <skill-root>/scripts/autoresearch_record_iteration.py`
 - `python3 <skill-root>/scripts/autoresearch_resume_check.py`
 - `python3 <skill-root>/scripts/autoresearch_select_parallel_batch.py`
+- `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
 
 ### Verify and Guard: two gates, two questions
 
@@ -413,7 +414,7 @@ Every iteration is recorded in `research-results.tsv`:
 iteration  commit   metric  delta   status    description
 0          a1b2c3d  47      0       baseline  initial any count
 1          b2c3d4e  41      -6      keep      replace any in auth module with strict types
-2          -        49      +8      discard   generic wrapper introduced new anys
+2          c3d4e5f  49      +8      discard   generic wrapper introduced new anys
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
@@ -541,16 +542,18 @@ If the context has been compacted twice or more, or the iteration counter reache
 
 ### Overnight Wrapper
 
-For truly long runs (overnight, multi-day), use a wrapper script that automatically restarts after a session split:
+For truly long runs (overnight, multi-day), prefer the bundled supervisor wrapper:
 
 ```bash
-while true; do
-  codex --full-auto "$PROMPT"
-  sleep 5
-done
+bash <skill-root>/scripts/autoresearch_supervise.sh \
+  --prompt-file /path/to/prompt.txt \
+  --sleep-seconds 5 \
+  --max-stagnation 3
 ```
 
-Each restart gets a fresh context window with all protocol files fully re-injected, eliminating drift entirely. The session resume mechanism handles continuity transparently.
+Run this wrapper from your shell, `tmux`, `screen`, or CI job. It is an outer supervisor that launches fresh Codex processes; it is not something the inner Codex session should recursively invoke.
+
+It still uses fresh Codex sessions, but it does not restart blindly. After each exit it checks `research-results.tsv` + `autoresearch-state.json`, decides `relaunch / stop / needs_human`, and stops automatically if the run is blocked or exits repeatedly without changing state.
 
 ---
 

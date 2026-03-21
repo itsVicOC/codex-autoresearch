@@ -38,11 +38,22 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
     "pivot_count": 0,
     "last_status": "discard"
   },
+  "supervisor": {
+    "recommended_action": "relaunch | stop | needs_human",
+    "should_continue": true,
+    "terminal_reason": "none | blocked | iteration_cap_reached | ...",
+    "last_exit_kind": "turn_complete | session_split | terminal | ...",
+    "last_turn_finished_at": "2026-03-19T08:20:10Z",
+    "restart_count": 3,
+    "stagnation_count": 0
+  },
   "updated_at": "2026-03-19T08:15:32Z"
 }
 ```
 
 Write protocol: write to `autoresearch-state.json.tmp`, then rename to `autoresearch-state.json` (atomic). Never commit this file to git.
+
+The `supervisor` object is optional. It is written by the overnight supervisor helper/wrapper, not required for normal session resume, and should be preserved if present.
 
 ## Detection Signals
 
@@ -174,17 +185,18 @@ Split the session when any of the following is true:
 
 ### Operator Guidance
 
-For long overnight runs, use a wrapper script that automatically restarts the CLI after a session split:
+For long overnight runs, prefer the bundled supervisor wrapper:
 
 ```bash
-while true; do
-  codex --full-auto "$PROMPT"
-  # Session resume will detect the prior run and continue
-  sleep 5
-done
+bash <skill-root>/scripts/autoresearch_supervise.sh \
+  --prompt-file /path/to/prompt.txt \
+  --sleep-seconds 5 \
+  --max-stagnation 3
 ```
 
-The session resume protocol (Priority 1: Full Resume) handles the restart transparently. The new session gets a fresh context window with all protocol files fully re-injected.
+This wrapper should be launched by the operator's shell / CI / `tmux` session. It is an outer control loop that starts fresh Codex processes, not something the in-flight Codex session should recursively call itself.
+
+It still relies on the session resume protocol for continuity, but it does not loop forever blindly: after each Codex exit it consults `autoresearch_supervisor_status.py`, relaunches only when the run is still resumable, and stops with `needs_human` when the state is blocked or stagnated.
 
 ## Integration Points
 

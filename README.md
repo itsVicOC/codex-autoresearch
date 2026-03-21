@@ -76,6 +76,9 @@ Codex: I found 47 `any` occurrences across src/**/*.ts.
 
        Reply "go" to start, or tell me what to change.
 
+       For truly unattended runs, launch Codex with approvals / sandbox settings
+       that will not interrupt git commit or revert commands.
+
 You:   Go, run overnight.
 
 Codex: Starting -- baseline: 47. Iterating until interrupted.
@@ -492,7 +495,7 @@ In `exec` mode, the state snapshot is scratch-only under `/tmp/codex-autoresearc
 iteration  commit   metric  delta   status    description
 0          a1b2c3d  47      0       baseline  initial any count
 1          b2c3d4e  41      -6      keep      replace any in auth module with strict types
-2          -        49      +8      discard   generic wrapper introduced new anys
+2          c3d4e5f  49      +8      discard   generic wrapper introduced new anys
 3          c3d4e5f  38      -3      keep      type-narrow API response handlers
 ```
 
@@ -505,6 +508,8 @@ Stateful artifact updates are backed by bundled helper scripts. Call them via th
 - `python3 <skill-root>/scripts/autoresearch_resume_check.py`
 - `python3 <skill-root>/scripts/autoresearch_select_parallel_batch.py`
 - `python3 <skill-root>/scripts/autoresearch_exec_state.py`
+- `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
+- `bash <skill-root>/scripts/autoresearch_supervise.sh --prompt-file <prompt-file>` (launch this from your shell/CI/tmux; it starts fresh Codex sessions externally)
 
 ---
 
@@ -562,6 +567,8 @@ codex-autoresearch/
     autoresearch_resume_check.py    # decide full_resume / mini_wizard / fallback
     autoresearch_select_parallel_batch.py # log worker rows + batch winner
     autoresearch_exec_state.py      # resolve / cleanup exec scratch state
+    autoresearch_supervisor_status.py # decide relaunch / stop / needs_human
+    autoresearch_supervise.sh       # state-aware fresh-session overnight wrapper
     check_skill_invariants.py       # validate real skill-run artifacts
     run_skill_e2e.sh                # disposable Codex CLI smoke harness
   tests/
