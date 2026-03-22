@@ -551,9 +551,15 @@ The public human workflow now stays on a single entrypoint: `$codex-autoresearch
 2. Answer the confirmation questions.
 3. Reply `go`.
 4. Codex writes `autoresearch-launch.json` and starts the detached runtime controller automatically.
-5. Each detached runtime cycle launches a non-interactive `codex exec` session with the runtime prompt supplied on stdin.
-6. Before each detached session or relaunch, the runtime controller runs `autoresearch_health_check.py` and `autoresearch_commit_gate.py` so integrity and scope safety are enforced at the control-plane boundary.
-7. If `codex exec` itself cannot be launched, the runtime moves to `needs_human` instead of silently looking idle.
+5. Single-repo runs are still the default. In that case the declared scope applies only to the primary repo that owns the run-control artifacts.
+6. If the experiment spans multiple repos, the confirmed launch manifest can declare companion repos with their own scopes. The detached runtime still writes `research-results.tsv`, `autoresearch-state.json`, `autoresearch-launch.json`, and `autoresearch-runtime.json` in the primary repo, but preflight checks cover every managed repo.
+   Script-level entrypoints represent this with repeated `--companion-repo-scope PATH=SCOPE` flags.
+   The TSV `commit` column remains the primary repo commit; companion-repo commit provenance lives in `autoresearch-state.json`.
+7. Each detached runtime cycle launches a non-interactive `codex exec` session with the runtime prompt supplied on stdin.
+   The launch manifest carries an `execution_policy`; this skill now defaults to `danger_full_access`, so detached sessions run with `--dangerously-bypass-approvals-and-sandbox` unless you explicitly opt back into the sandboxed `workspace_write` path.
+8. Before each detached session or relaunch, the runtime controller runs `autoresearch_health_check.py` and `autoresearch_commit_gate.py` so integrity and scope safety are enforced at the control-plane boundary across all managed repos.
+9. If `codex exec` itself cannot be launched, the runtime moves to `needs_human` instead of silently looking idle.
+10. If an explicit stop request cannot actually terminate the detached runner, the runtime also moves to `needs_human` instead of pretending the run is fully stopped.
 
 After that, the run continues through fresh Codex sessions in the background until a terminal condition, blocker, or explicit stop request.
 
@@ -598,7 +604,7 @@ Non-interactive mode for automation pipelines. Differences from interactive mode
 - Reads lessons if available, but does not write them
 - Exit codes: 0 = improved, 1 = no improvement, 2 = hard blocker
 
-Before using `codex exec` in CI, configure Codex CLI authentication in advance. For programmatic runs, API key authentication is the preferred option.
+Before using `codex exec` in CI, configure Codex CLI authentication in advance. In controlled automation environments, prefer `codex exec --dangerously-bypass-approvals-and-sandbox ...` so the verify command has the same full-access behavior as the managed runtime. For programmatic runs, API key authentication is the preferred option.
 
 See `references/exec-workflow.md` for full details and CI integration examples.
 

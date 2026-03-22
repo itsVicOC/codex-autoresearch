@@ -46,6 +46,7 @@ Rules:
 - Prefer multiple-choice questions over open-ended ones to reduce user effort.
 - If the user's answer introduces new ambiguity, ask about that specifically.
 - If after 5 rounds the goal is still unclear, propose the most reasonable interpretation and let the user approve or edit.
+- If the user says the experiment spans multiple repos, identify one **primary repo** for run-control artifacts and list any additional **companion repos** separately, each with its own scope.
 
 ### Step 3: Confirm (Structured Format)
 
@@ -231,6 +232,12 @@ The wizard internally maps the conversation to these fields (the user never sees
 ### exec
 
 Exec mode does NOT use the wizard. All fields must be provided at invocation time in the `codex exec` prompt or via environment variables. If any required field is missing, exec mode fails immediately with exit code 2. See `references/exec-workflow.md`.
+
+### Execution Policy
+
+- The launch manifest records an `execution_policy`.
+- This skill defaults that policy to `danger_full_access` so detached runtime sessions and controlled automation runs inherit full access by default.
+- Only switch to `workspace_write` when the user explicitly asks for a sandboxed run or when you intentionally want to reproduce sandbox-related blockers.
 
 ## Validation Rules
 

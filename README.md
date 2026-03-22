@@ -463,7 +463,7 @@ Non-interactive mode for automation pipelines. All config is provided upfront --
 # GitHub Actions example
 - name: Autoresearch optimization
   run: |
-    codex exec <<'PROMPT'
+    codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
     $codex-autoresearch
     Mode: exec
     Goal: Reduce type errors
@@ -477,7 +477,7 @@ Non-interactive mode for automation pipelines. All config is provided upfront --
 
 Exit codes: 0 = improved, 1 = no improvement, 2 = hard blocker.
 
-Before using `codex exec` in CI, configure Codex CLI authentication in advance. For programmatic runs, API key authentication is the preferred option.
+Before using `codex exec` in CI, configure Codex CLI authentication in advance. In controlled automation environments, prefer `codex exec --dangerously-bypass-approvals-and-sandbox ...` so standalone exec runs match the managed runtime's default `danger_full_access` policy. For programmatic runs, API key authentication is the preferred option.
 
 See `references/exec-workflow.md`.
 
@@ -525,8 +525,14 @@ Human-facing usage now has a single entrypoint: **`$codex-autoresearch`**.
 
 - First interactive run: describe the goal naturally, answer the confirmation questions, then reply `go`.
 - After `go`, Codex calls `autoresearch_runtime_ctl.py launch`, which atomically writes `autoresearch-launch.json` and starts the detached runtime controller.
+- Single-repo runs remain the default: the declared scope applies to the primary repo that owns the run-control artifacts.
+- For cross-repo experiments, the confirmed launch manifest can also declare companion repos, each with its own scope. Runtime preflight then checks git/worktree safety across all managed repos, while `research-results.tsv`, `autoresearch-state.json`, and runtime-control files remain anchored in the primary repo.
+- In that model, the TSV `commit` column still tracks the primary repo commit, while `autoresearch-state.json` can carry per-repo commit provenance for companion repos.
+- Script-level entrypoints accept repeated `--companion-repo-scope PATH=SCOPE` flags when you need to seed that structure directly.
 - Each detached runtime cycle launches a non-interactive `codex exec` session with the runtime prompt fed on stdin, so it does not depend on the interactive TUI.
+- The managed runtime now records an explicit `execution_policy`. In this skill the default is `danger_full_access`, which means detached Codex sessions run with `--dangerously-bypass-approvals-and-sandbox` unless a caller explicitly opts into the sandboxed `workspace_write` path.
 - If the runtime cannot launch that `codex exec` session at all, it transitions to `needs_human` instead of silently falling back to an idle state.
+- If an explicit stop request cannot actually terminate the detached runner, the runtime also transitions to `needs_human` instead of pretending the run is fully stopped.
 - Before the detached runtime starts a session or relaunches one, it runs a script-level preflight: `autoresearch_health_check.py` for integrity checks and `autoresearch_commit_gate.py` for scope-aware git safety.
 - Later `status`, `stop`, or `resume` requests should still go through `$codex-autoresearch`; the skill uses `autoresearch_runtime_ctl.py` internally.
 - `Mode: exec` remains the advanced / CI path for fully specified non-interactive runs.
@@ -651,7 +657,7 @@ codex-autoresearch/
 
 **Can it search the web?** Yes, when stuck after multiple strategy pivots. Web search results are treated as hypotheses and verified mechanically.
 
-**How do I use it in CI?** Use `Mode: exec` or `codex exec`. Configure Codex CLI authentication first; API key auth is preferred for CI/programmatic use. All config is provided upfront, output is JSON, and exit codes indicate success/failure.
+**How do I use it in CI?** Use `Mode: exec` or `codex exec`. In controlled automation environments, this skill now assumes full-access execution by default, so prefer `codex exec --dangerously-bypass-approvals-and-sandbox ...` unless you intentionally want to reproduce workspace-write sandbox behavior. Configure Codex CLI authentication first; API key auth is preferred for CI/programmatic use. All config is provided upfront, output is JSON, and exit codes indicate success/failure.
 
 **Can it test multiple ideas at once?** Yes. Enable parallel experiments during setup. It uses git worktrees to test up to 3 hypotheses simultaneously.
 

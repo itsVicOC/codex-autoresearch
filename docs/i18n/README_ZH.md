@@ -472,7 +472,7 @@ security + fix               # 审计并修复一步到位
 
 退出码：0 = 已改善，1 = 无改善，2 = 硬阻塞。
 
-在 CI 中使用 `codex exec` 前，请先配置好 Codex CLI 认证。对于程序化运行，优先使用 API key 认证。
+在 CI 中使用 `codex exec` 前，请先配置好 Codex CLI 认证。在受控自动化环境里，建议优先使用 `codex exec --dangerously-bypass-approvals-and-sandbox ...`，这样独立 `exec` 运行会与托管 runtime 默认的 `danger_full_access` 策略保持一致。对于程序化运行，优先使用 API key 认证。
 
 详见 `references/exec-workflow.md`。
 
@@ -517,7 +517,11 @@ iteration  commit   metric  delta   status    description
 
 - 首次交互运行：自然描述目标，回答确认问题，然后回复 `go`
 - 回复 `go` 后，Codex 会自动写入 `autoresearch-launch.json` 并启动分离的运行控制器
+- 单仓运行仍然是默认形态；此时声明的 scope 只作用于承载 run-control 工件的主仓库
+- 如果实验跨多个仓库，确认后的 launch manifest 也可以声明 companion repos，并为每个仓库单独给出 scope。runtime preflight 会检查所有托管仓库，但 `research-results.tsv`、`autoresearch-state.json` 以及 runtime-control 工件仍然锚定在主仓库
+- 在这种模型下，TSV 的 `commit` 列仍然只记录主仓库提交；companion repo 的逐仓 commit provenance 则记录在 `autoresearch-state.json` 中
 - 之后每个托管循环都会启动一个非交互式 `codex exec` 会话，并通过 stdin 传入 runtime prompt
+- launch manifest 还会记录 `execution_policy`；当前 skill 默认是 `danger_full_access`，因此托管循环默认会以 `--dangerously-bypass-approvals-and-sandbox` 运行，只有在明确要求时才切回 `workspace_write`
 - 之后如果想看状态、停止、恢复，仍然通过 `$codex-autoresearch` 这个 skill 来做
 - `Mode: exec` 仍然保留给 CI / 高级自动化
 
@@ -635,7 +639,7 @@ codex-autoresearch/
 
 **它能搜索网络吗？** 是的，在多次策略转向后仍然卡住时。搜索结果作为假设处理，机械验证后才应用。
 
-**如何在 CI 中使用？** 使用 `Mode: exec` 或 `codex exec`。所有配置预先提供，输出为 JSON，退出码表示成功/失败。
+**如何在 CI 中使用？** 使用 `Mode: exec` 或 `codex exec`。在受控自动化环境里，建议使用 `codex exec --dangerously-bypass-approvals-and-sandbox ...`，这样与默认 runtime 权限一致。所有配置预先提供，输出为 JSON，退出码表示成功/失败。
 
 **能同时测试多个想法吗？** 是的。在设置阶段启用并行实验。它使用 git worktree 同时测试最多 3 个假设。
 

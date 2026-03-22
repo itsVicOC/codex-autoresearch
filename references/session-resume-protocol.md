@@ -14,6 +14,11 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
   "config": {
     "goal": "<goal text>",
     "scope": "<glob pattern>",
+    "repos": [
+      {"path": "/path/to/primary-repo", "scope": "src/**", "role": "primary"},
+      {"path": "/path/to/companion-repo", "scope": "pkg/**", "role": "companion"}
+    ],
+    "execution_policy": "danger_full_access",
     "metric": "<metric name>",
     "direction": "lower | higher",
     "verify": "<verify command>",
@@ -26,7 +31,15 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
     "best_iteration": 12,
     "current_metric": 28,
     "last_commit": "a1b2c3d",
+    "last_repo_commits": {
+      "/path/to/primary-repo": "a1b2c3d",
+      "/path/to/companion-repo": "b2c3d4e"
+    },
     "last_trial_commit": "d4e5f6a",
+    "last_trial_repo_commits": {
+      "/path/to/primary-repo": "d4e5f6a",
+      "/path/to/companion-repo": "c3d4e5f"
+    },
     "last_trial_metric": 31,
     "keeps": 8,
     "discards": 5,
@@ -52,6 +65,10 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
 ```
 
 Write protocol: write to a uniquely named temporary file in the same directory, fsync, then rename to `autoresearch-state.json` (atomic). Never commit this file to git.
+
+`config.repos` is optional for older single-repo states. When present, it is the authoritative managed-repo list: one primary repo plus any companion repos, each with its own scope. `config.scope` remains the primary repo's scope for backward-compatible callers.
+
+`state.last_repo_commits` and `state.last_trial_repo_commits` are optional multi-repo provenance maps keyed by repo path. They complement the TSV's single `commit` column, which continues to record only the primary repo commit. These maps are preserved when valid JSON state exists, but they are not reconstructed from the TSV alone and therefore are not part of the hard TSV/JSON consistency contract.
 
 The `supervisor` object is optional. It is written by the runtime control plane (`autoresearch_runtime_ctl.py` and `autoresearch_supervisor_status.py`), is not required for normal session resume, and should be preserved if present.
 

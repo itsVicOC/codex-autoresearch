@@ -53,6 +53,8 @@ iteration	commit	metric	delta	guard	status	description
 | `status` | See Status Values below |
 | `description` | One-sentence explanation of the iteration |
 
+For multi-repo runs, the TSV `commit` column still records the **primary repo** commit. Per-repo commit provenance for companion repos lives in `autoresearch-state.json` (`state.last_repo_commits` and `state.last_trial_repo_commits`) so the primary audit trail stays compact while the JSON snapshot preserves cross-repo detail.
+
 ## Status Values
 
 | Status | Meaning |
@@ -103,13 +105,13 @@ These helper scripts live in the skill bundle. Do not confuse them with the targ
 Define `<skill-root>` as the directory that contains the loaded `SKILL.md`. In the common repo-local install this is usually `.agents/skills/codex-autoresearch`, so the exact command becomes `python3 .agents/skills/codex-autoresearch/scripts/...`.
 
 - `python3 <skill-root>/scripts/autoresearch_init_run.py ...`
-  Initializes `research-results.tsv` and `autoresearch-state.json` together from the baseline measurement. In exec mode it also archives the configured results log plus any repo-root `autoresearch-state.json` to `.prev`, clears stale default scratch state, and enforces the prelaunch commit gate.
+  Initializes `research-results.tsv` and `autoresearch-state.json` together from the baseline measurement. The saved config now includes an `execution_policy` field; this skill defaults it to `danger_full_access` unless a caller explicitly asks for sandboxed `workspace_write`. In exec mode it also archives the configured results log plus any repo-root `autoresearch-state.json` to `.prev`, clears stale default scratch state, and enforces the prelaunch commit gate. Multi-repo runs may add repeated `--repo-commit PATH=COMMIT` flags to persist companion-repo baseline provenance in JSON state.
 - `python3 <skill-root>/scripts/autoresearch_record_iteration.py ...`
-  Appends one authoritative main iteration row and updates JSON state atomically.
+  Appends one authoritative main iteration row and updates JSON state atomically. Multi-repo runs may add repeated `--repo-commit PATH=COMMIT` flags to update companion-repo commit provenance while the TSV `commit` column continues to track the primary repo.
 - `python3 <skill-root>/scripts/autoresearch_resume_check.py ...`
   Reconstructs retained state from the TSV and decides `full_resume`, `mini_wizard`, `tsv_fallback`, or `fresh_start`.
 - `python3 <skill-root>/scripts/autoresearch_select_parallel_batch.py --batch-file ...`
-  Logs worker rows, runs the batch-boundary health/worktree preflight, appends the main batch row, and updates JSON state once per batch.
+  Logs worker rows, runs the batch-boundary health/worktree preflight, appends the main batch row, and updates JSON state once per batch. Worker batch items may include `repo_commits` for companion-repo provenance.
 - `python3 <skill-root>/scripts/autoresearch_exec_state.py`
   Prints the deterministic exec scratch-state path under `/tmp` and cleans it up on `--cleanup`.
 - `python3 <skill-root>/scripts/autoresearch_supervisor_status.py`
@@ -142,6 +144,7 @@ In exec mode, the helper scripts keep JSON state in scratch storage by default i
 - **Main iteration match:** `state.iteration` must equal the highest integer iteration label in the TSV.
 - **Retained metric match:** `state.current_metric` must equal the retained metric after replaying the integer main rows. After a `discard`, the TSV row records the attempted metric, but `state.current_metric` stays at the last kept metric.
 - **Last trial match:** `state.last_trial_metric` must equal the metric on the latest integer main row.
+- **Multi-repo provenance:** when `state.last_repo_commits` or `state.last_trial_repo_commits` are present, they are auxiliary JSON-only provenance keyed by repo path. They are not reconstructed from the TSV and therefore do not participate in TSV/JSON consistency blocking.
 - **Parallel tolerance:** Worker rows (`5a`, `5b`, `5c`) are ignored for `state.iteration` matching. They provide audit detail only.
 
 During session resume, `python3 <skill-root>/scripts/autoresearch_resume_check.py` reconstructs the retained state from the TSV and compares it with `autoresearch-state.json`. Any mismatch triggers a mini-wizard rather than a silent full resume.

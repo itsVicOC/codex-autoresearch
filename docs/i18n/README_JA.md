@@ -472,7 +472,7 @@ Codex がインタラクティブモードで以前中断された管理対象 r
 
 終了コード：0 = 改善、1 = 改善なし、2 = ハードブロッカー。
 
-CI で `codex exec` を使う前に、Codex CLI の認証を事前に設定してください。プログラム実行では API key 認証が推奨です。
+CI で `codex exec` を使う前に、Codex CLI の認証を事前に設定してください。制御された自動化環境では、単独の `exec` 実行も managed runtime の既定ポリシー `danger_full_access` に揃うよう、`codex exec --dangerously-bypass-approvals-and-sandbox ...` を優先してください。プログラム実行では API key 認証が推奨です。
 
 詳細は `references/exec-workflow.md` を参照。
 
@@ -517,7 +517,11 @@ iteration  commit   metric  delta   status    description
 
 - 最初の対話実行では、目標を自然に説明し、確認の質問に答え、そのあと `go` と返します
 - `go` のあと、Codex は `autoresearch-launch.json` を書き込み、切り離された実行コントローラを自動で起動します
+- 単一リポジトリの実行は引き続きデフォルトです。この場合、宣言した scope は run-control 工程を保持する primary repo にだけ適用されます
+- 実験が複数リポジトリにまたがる場合、確認済みの launch manifest には companion repos と各 repo 固有の scope も記述できます。runtime preflight は管理対象の全 repo を検査しますが、`research-results.tsv`、`autoresearch-state.json`、runtime-control の各工件は primary repo に置かれたままです
+- このモデルでは TSV の `commit` 列は引き続き primary repo の commit だけを記録し、companion repo ごとの commit provenance は `autoresearch-state.json` に保存されます
 - その後の各 managed runtime cycle は、runtime prompt を stdin で渡した非対話の `codex exec` セッションとして実行されます
+- launch manifest には `execution_policy` も記録されます。この skill の既定値は `danger_full_access` なので、明示的に `workspace_write` を要求しない限り、managed cycle は通常 `--dangerously-bypass-approvals-and-sandbox` で実行されます
 - その後の `status`、`stop`、`resume` も同じ `$codex-autoresearch` から行います
 - `Mode: exec` は、CI や完全に指定された自動化向けの上級パスとして残ります
 
@@ -635,7 +639,7 @@ codex-autoresearch/
 
 **Web 検索は可能？** はい。複数回の戦略ピボット後にスタックした場合に使用されます。Web 検索結果は仮説として扱われ、機械的に検証されます。
 
-**CI で使うには？** `Mode: exec` または `codex exec` を使用してください。全ての設定は事前に指定され、出力は JSON 形式で、終了コードが成功/失敗を示します。
+**CI で使うには？** `Mode: exec` または `codex exec` を使用してください。制御された自動化環境では、既定 runtime と権限を揃えるため `codex exec --dangerously-bypass-approvals-and-sandbox ...` を使うのが推奨です。全ての設定は事前に指定され、出力は JSON 形式で、終了コードが成功/失敗を示します。
 
 **複数のアイデアを同時にテストできる？** はい。セットアップ中に並列実験を有効にしてください。git worktree を使用して最大 3 つの仮説を同時にテストします。
 

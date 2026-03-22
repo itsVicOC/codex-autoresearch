@@ -92,12 +92,13 @@ Before starting any interactive loop, ALWAYS:
 
 1. Scan the repo to understand context.
 2. Ask at least one round of clarifying questions based on what you found -- confirm scope, metric, verify command, run style (until interrupted vs bounded), and any rollback approval needed for unattended execution.
+   - If the task spans multiple repos, confirm one primary repo plus any companion repos, each with an explicit per-repo scope.
 3. Present a plain-language summary for the user to approve.
 4. Only start the loop after the user explicitly says "go" / "start" / "launch" or equivalent.
 
 Never silently infer all fields and start iterating. A 30-second confirmation is always cheaper than wasted iterations.
 
-**Two-phase boundary:** All questions happen BEFORE launch. Once the user says "go", call `autoresearch_runtime_ctl.py launch` so the confirmed launch manifest and detached runtime are created in one script-level handoff. The long-running loop should continue through the runtime, not stay bound to the same foreground turn. Each runtime cycle should launch a non-interactive `codex exec` session, with the generated runtime prompt supplied on stdin. If that `codex exec` session cannot be launched, the runtime must transition to `needs_human` instead of silently falling back to an idle state. After launch, NEVER pause to ask the user anything during the loop -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity mid-loop, apply best practices, log your reasoning in the commit message, and keep iterating. The user may be asleep.
+**Two-phase boundary:** All questions happen BEFORE launch. Once the user says "go", call `autoresearch_runtime_ctl.py launch` so the confirmed launch manifest and detached runtime are created in one script-level handoff. The launch manifest may describe either a single primary repo or a primary repo plus companion repos with separate scopes. The long-running loop should continue through the runtime, not stay bound to the same foreground turn. Each runtime cycle should launch a non-interactive `codex exec` session, with the generated runtime prompt supplied on stdin. The launch manifest carries an `execution_policy`; this skill now defaults that policy to `danger_full_access`, so detached sessions normally run with `--dangerously-bypass-approvals-and-sandbox` unless a caller explicitly opts into sandboxed `workspace_write`. If that `codex exec` session cannot be launched, the runtime must transition to `needs_human` instead of silently falling back to an idle state. If an explicit stop request cannot actually terminate the detached runner, the runtime must also transition to `needs_human` instead of claiming the run is fully stopped. After launch, NEVER pause to ask the user anything during the loop -- not for clarification, not for confirmation, not for permission. If you encounter ambiguity mid-loop, apply best practices, log your reasoning in the commit message, and keep iterating. The user may be asleep.
 
 Exec-mode exception:
 - Do not ask clarifying or launch questions.
@@ -408,7 +409,7 @@ Health Check runs strictly between Log (Phase 8) and Phase 8.7 (Re-Anchoring). T
 Run health checks per `references/health-check-protocol.md`:
 
 - **Every managed-runtime cycle boundary:** before each detached `codex exec` session (and therefore before every relaunch), `autoresearch_runtime_ctl.py` runs `autoresearch_health_check.py` for disk space, git state, verify command existence, and resume-helper-based TSV/JSON integrity.
-- **Commit safety at the same boundary:** when the repo is git-backed, `autoresearch_runtime_ctl.py` also runs `autoresearch_commit_gate.py` with the launch-manifest scope before each detached session. Relaunch is blocked if staged autoresearch artifacts or out-of-scope worktree changes are present.
+- **Commit safety at the same boundary:** when the managed repos are git-backed, `autoresearch_runtime_ctl.py` also runs `autoresearch_commit_gate.py` with the launch-manifest repo list and per-repo scopes before each detached session. Relaunch is blocked if staged autoresearch artifacts or out-of-scope worktree changes are present in any managed repo.
 - **Extended review:** scope integrity, environment drift, verify/guard consistency, and context health when the workflow explicitly schedules the protocol-level extended checks.
 - Log integrity should use the helper-script reconstruction of main rows and retained state, not raw TSV row counts.
 - `autoresearch_health_check.py` only returns structured `ok / warn / block` findings. Any retries, repairs, or blocker logging must be implemented by the caller.

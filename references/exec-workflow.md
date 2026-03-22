@@ -25,12 +25,13 @@ All fields must be provided at invocation time. There is no wizard fallback.
 | Verify | yes | prompt or env `AUTORESEARCH_VERIFY` |
 | Guard | no | prompt or env `AUTORESEARCH_GUARD` |
 | Iterations | yes (always bounded) | prompt or env `AUTORESEARCH_ITERATIONS` |
+| Execution policy | no | prompt or env `AUTORESEARCH_EXECUTION_POLICY` (`danger_full_access` by default) |
 
 If any required field is missing, exit immediately with code 2 and a JSON error.
 
 In Codex CLI, `codex exec` accepts a prompt. Do not assume a skill-specific `--skill` flag exists; invoke the skill in the prompt itself.
 
-Before using `codex exec` in CI, configure Codex CLI authentication outside the skill itself. For programmatic runs, API key authentication is the preferred option.
+Before using `codex exec` in CI, configure Codex CLI authentication outside the skill itself. In controlled automation environments, this skill assumes `danger_full_access` by default, so prefer `codex exec --dangerously-bypass-approvals-and-sandbox ...` unless you intentionally want to test the sandboxed `workspace_write` path. For programmatic runs, API key authentication is the preferred option.
 
 ## Behavior Differences from Interactive Mode
 
@@ -45,6 +46,7 @@ Before using `codex exec` in CI, configure Codex CLI authentication outside the 
 | Lessons | read + write | read only (do not write in CI) |
 | JSON state | repo-root `autoresearch-state.json` | scratch-only under `/tmp`, removed by the exec workflow before exit |
 | Session resume | full | disabled (fresh start; prior JSON/TSV renamed to `.prev`) |
+| Execution policy | chosen during launch | `danger_full_access` by default, `workspace_write` only when explicitly requested |
 
 ## JSON Output Format
 
@@ -92,7 +94,7 @@ Before using `codex exec` in CI, configure Codex CLI authentication outside the 
 ```yaml
 - name: Autoresearch optimization
   run: |
-    codex exec <<'PROMPT'
+    codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
     $codex-autoresearch
     Mode: exec
     Goal: Reduce type errors
@@ -111,7 +113,7 @@ Before using `codex exec` in CI, configure Codex CLI authentication outside the 
 optimize:
   script:
     - |
-      codex exec <<'PROMPT'
+      codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
       $codex-autoresearch
       Mode: exec
       Goal: Raise test coverage

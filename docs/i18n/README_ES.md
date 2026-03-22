@@ -472,7 +472,7 @@ Modo no interactivo para pipelines de automatizacion. Toda la configuracion se p
 
 Codigos de salida: 0 = mejoro, 1 = sin mejora, 2 = bloqueo duro.
 
-Antes de usar `codex exec` en CI, configura por adelantado la autenticacion del CLI de Codex. Para ejecuciones programaticas, la autenticacion mediante API key es la opcion preferida.
+Antes de usar `codex exec` en CI, configura por adelantado la autenticacion del CLI de Codex. En entornos de automatizacion controlados conviene usar `codex exec --dangerously-bypass-approvals-and-sandbox ...` para que las ejecuciones `exec` independientes coincidan con la politica predeterminada `danger_full_access` del runtime gestionado. Para ejecuciones programaticas, la autenticacion mediante API key es la opcion preferida.
 
 Consulta `references/exec-workflow.md`.
 
@@ -517,7 +517,11 @@ De cara al usuario humano, ahora solo hay un punto de entrada principal: **`$cod
 
 - En la primera ejecucion interactiva, describe el objetivo de forma natural, responde las preguntas de confirmacion y luego contesta `go`
 - Despues de `go`, Codex escribe `autoresearch-launch.json` y arranca automaticamente el controlador de ejecucion desacoplado
+- Las ejecuciones de un solo repositorio siguen siendo la opcion por defecto; en ese caso el scope declarado solo se aplica al repositorio primario que guarda los artefactos de control
+- Si el experimento abarca varios repositorios, el manifiesto de lanzamiento confirmado tambien puede declarar repositorios companion, cada uno con su propio scope. El preflight del runtime revisa todos los repositorios gestionados, mientras que `research-results.tsv`, `autoresearch-state.json` y los artefactos de control siguen anclados en el repositorio primario
+- En ese modelo, la columna `commit` del TSV sigue registrando solo el commit del repositorio primario; la procedencia de commits por repositorio para los companion repos queda en `autoresearch-state.json`
 - Cada ciclo gestionado posterior lanza una sesion no interactiva de `codex exec` y pasa el prompt del runtime por stdin
+- El launch manifest tambien guarda la `execution_policy`; este skill usa `danger_full_access` por defecto, por lo que los ciclos gestionados se ejecutan normalmente con `--dangerously-bypass-approvals-and-sandbox`, salvo que se pida expresamente `workspace_write`
 - Las solicitudes posteriores de `status`, `stop` o `resume` siguen pasando por el mismo `$codex-autoresearch`
 - `Mode: exec` sigue siendo la via avanzada para CI o automatizacion totalmente especificada
 
@@ -635,7 +639,7 @@ codex-autoresearch/
 
 **Puede buscar en la web?** Si, cuando esta atascado despues de multiples cambios de estrategia. Los resultados de la busqueda web se tratan como hipotesis y se verifican mecanicamente.
 
-**Como lo uso en CI?** Usa `Mode: exec` o `codex exec`. Toda la configuracion se proporciona por adelantado, la salida es JSON y los codigos de salida indican exito/fallo.
+**Como lo uso en CI?** Usa `Mode: exec` o `codex exec`. En entornos de automatizacion controlados conviene usar `codex exec --dangerously-bypass-approvals-and-sandbox ...` para igualar la politica predeterminada del runtime. Toda la configuracion se proporciona por adelantado, la salida es JSON y los codigos de salida indican exito/fallo.
 
 **Puede probar multiples ideas a la vez?** Si. Activa los experimentos paralelos durante la configuracion. Usa worktrees de git para probar hasta 3 hipotesis simultaneamente.
 

@@ -27,7 +27,7 @@ Run before each detached Codex session. In a runtime-managed loop, this means th
 | Check | How | Failure Action |
 |-------|-----|----------------|
 | Disk space | `df -m . \| awk 'NR==2{print $4}'` >= 500MB | Warning at <1GB, hard blocker at <500MB |
-| Git state | `git status --porcelain` shows only expected files and autoresearch-owned artifacts | Warning if unexpected files; hard blocker if repo is corrupt |
+| Git state | For single-repo runs, `git status --porcelain` shows only expected files and autoresearch-owned artifacts. For multi-repo runs, apply the same check to the primary repo and every companion repo declared in the launch manifest. | Warning if unexpected files; hard blocker if repo is corrupt |
 | Verify command | Confirm the configured verify command still resolves to an executable | Hard blocker if the verify command is missing |
 | Log integrity | `python3 <skill-root>/scripts/autoresearch_resume_check.py` can reconstruct TSV state | Hard blocker if the TSV is corrupt |
 | JSON state integrity | Resume helper reports `full_resume` or a recoverable fallback | Warning on divergence; optionally rewrite state from TSV. Hard blocker if both TSV and JSON are unusable |
@@ -100,6 +100,7 @@ Thresholds:
 - **autonomous-loop-protocol.md:** Runs as Phase 8.5 between Log and Phase 8.7 (Re-Anchoring). Context health feeds into the Protocol Fingerprint Check in Phase 8.7.
 - **environment-awareness.md:** Initial probes establish baselines for drift detection.
 - **parallel-experiments-protocol.md:** `autoresearch_select_parallel_batch.py` reuses the lightweight health/worktree preflight before it accepts a completed parallel batch into the authoritative run state.
+- **multi-repo runs:** the helper remains anchored in the primary repo for results/state/log integrity, but companion repos participate in worktree-scope checks through the launch-manifest repo list.
 - **results-logging.md:** The health helper returns structured findings; append TSV rows only when the runtime explicitly chooses to log a blocker or recovery event.
 - **session-resume-protocol.md:** JSON/TSV integrity checks must reuse `autoresearch_resume_check.py` decisions and launch/runtime control files instead of maintaining a second row-count heuristic.
 - **SKILL.md:** Listed in the load order for iterating modes.

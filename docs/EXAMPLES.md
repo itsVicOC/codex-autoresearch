@@ -517,7 +517,7 @@ Non-interactive mode for automation pipelines. All config upfront, JSON output, 
 ```yaml
 - name: Reduce type errors
   run: |
-    codex exec <<'PROMPT'
+    codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
     $codex-autoresearch
     Mode: exec
     Goal: Reduce type errors
@@ -538,7 +538,7 @@ Exit codes: 0 = improved, 1 = no improvement, 2 = hard blocker.
 optimize-coverage:
   script:
     - |
-      codex exec <<'PROMPT'
+      codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
       $codex-autoresearch
       Mode: exec
       Goal: Raise test coverage
@@ -557,7 +557,7 @@ optimize-coverage:
 ```yaml
 - name: Nightly lint cleanup
   run: |
-    codex exec <<'PROMPT'
+    codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
     $codex-autoresearch
     Mode: exec
     Goal: Eliminate ESLint violations
