@@ -462,7 +462,7 @@ security + fix               # 审计并修复一步到位
 # GitHub Actions 示例
 - name: Autoresearch 优化
   run: |
-    codex exec <<'PROMPT'
+    codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
     $codex-autoresearch
     Mode: exec
     Goal: Reduce type errors

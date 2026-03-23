@@ -449,7 +449,7 @@ Mode non interactif pour les pipelines d'automatisation. Toute la configuration 
 # Exemple GitHub Actions
 - name: Autoresearch optimization
   run: |
-    codex exec <<'PROMPT'
+    codex exec --dangerously-bypass-approvals-and-sandbox <<'PROMPT'
     $codex-autoresearch
     Mode: exec
     Goal: Reduce type errors
