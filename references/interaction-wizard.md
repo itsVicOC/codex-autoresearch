@@ -19,8 +19,9 @@ When this file mentions `<skill-root>`, it means the directory containing the lo
 5. Propose concrete defaults with every question. Let the user confirm or correct.
 6. Up to 5 clarification rounds are allowed before launching. But never zero rounds.
 7. Present a structured confirmation summary before launching (see Confirmation Format below).
-8. The user should never see raw field names (Goal, Scope, Metric, Direction, Verify, Guard). Translate everything into natural conversation.
-9. After the user approves the summary, follow the chosen run mode directly from the same skill entrypoint. Foreground stays in the current session; background persists the confirmed launch manifest and starts the runtime controller. Do not tell the user to switch to a different wrapper command.
+8. The mandatory confirmation round must never collapse into a bare "foreground/background + go" prompt. Even if the only unresolved choice is run mode, first show a short repo-grounded summary of the confirmed goal, metric, verify path, and next step.
+9. The user should never see raw field names (Goal, Scope, Metric, Direction, Verify, Guard). Translate everything into natural conversation.
+10. After the user approves the summary, follow the chosen run mode directly from the same skill entrypoint. Foreground stays in the current session; background persists the confirmed launch manifest and starts the runtime controller. Do not tell the user to switch to a different wrapper command.
 
 ## Clarification Protocol
 
@@ -47,6 +48,7 @@ Rules:
 - If the user's answer introduces new ambiguity, ask about that specifically.
 - If after 5 rounds the goal is still unclear, propose the most reasonable interpretation and let the user approve or edit.
 - If the user says the experiment spans multiple repos, identify one **primary repo** for run-control artifacts and list any additional **companion repos** separately, each with its own scope.
+- Do not replace the structured summary with a single-line "foreground or background?" prompt. The user should see what you inferred from the repo before they are asked to approve launch.
 
 ### Step 3: Confirm (Structured Format)
 
@@ -93,6 +95,7 @@ Before launching, present a structured confirmation summary. The user should be 
 3. Show concrete numbers (current metric value, file count, etc.) so the user can sanity-check.
 4. The "Need to confirm" section should only contain genuine blockers, not padding.
 5. End with a clear call to action.
+6. If run mode is still undecided, list it under "Need to confirm" and then ask the user to choose foreground or background. Do not omit the summary just because run mode is the only remaining blocker.
 
 The user replies "go", "start", "launch", or corrects something. No field names, no YAML, no structured input required.
 
