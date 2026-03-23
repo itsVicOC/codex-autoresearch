@@ -12,6 +12,8 @@ from autoresearch_helpers import (
     default_state_path,
     read_state_payload,
     read_runtime_payload,
+    resolve_repo_path,
+    resolve_repo_relative,
     resolve_state_path,
     serialize_repo_targets,
     utc_now,
@@ -25,19 +27,6 @@ DEFAULT_RESULTS_PATH = "research-results.tsv"
 DEFAULT_EXECUTION_POLICY = "danger_full_access"
 EXECUTION_POLICY_CHOICES = ("workspace_write", "danger_full_access")
 DEFAULT_HEALTH_MIN_FREE_MB = 500
-
-
-def resolve_repo_path(repo_arg: str | None) -> Path:
-    return Path(repo_arg or Path.cwd()).resolve()
-
-
-def resolve_repo_relative(repo: Path, raw: str | None, default_path: Path) -> Path:
-    if raw is None:
-        return default_path
-    candidate = Path(raw)
-    if not candidate.is_absolute():
-        candidate = repo / candidate
-    return candidate.resolve()
 
 
 def parse_key_value_pairs(values: list[str]) -> dict[str, str]:
@@ -108,6 +97,7 @@ def manifest_config_from_args(args: argparse.Namespace) -> dict[str, Any]:
         companion_repo_scopes=getattr(args, "companion_repo_scope", []),
     )
     return {
+        "session_mode": "background",
         "goal": args.goal,
         "scope": repo_targets[0].scope,
         "repos": serialize_repo_targets(repo_targets),

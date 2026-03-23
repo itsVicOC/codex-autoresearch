@@ -53,14 +53,14 @@ def parse_args() -> argparse.Namespace:
     exec_parser.add_argument("--expect-improvement", action="store_true")
 
     interactive_parser = subparsers.add_parser(
-        "interactive", help="Check iterating-mode artifacts after a manual smoke run."
+        "interactive", help="Check foreground interactive-mode artifacts after a manual smoke run."
     )
     interactive_parser.add_argument("--repo", required=True)
     interactive_parser.add_argument("--verify-cmd", required=True)
     interactive_parser.add_argument("--expect-improvement", action="store_true")
 
     runtime_parser = subparsers.add_parser(
-        "runtime", help="Check detached runtime launch/status/stop artifacts."
+        "runtime", help="Check background detached-runtime launch/status/stop artifacts."
     )
     runtime_parser.add_argument("--repo", required=True)
     runtime_parser.add_argument("--expect-status", default="stopped")
@@ -307,6 +307,9 @@ def validate_interactive(repo: Path, args: argparse.Namespace) -> None:
     results_path = repo / "research-results.tsv"
     state_path = repo / "autoresearch-state.json"
     lessons_path = repo / "autoresearch-lessons.md"
+    launch_path = repo / "autoresearch-launch.json"
+    runtime_path = repo / "autoresearch-runtime.json"
+    runtime_log_path = repo / "autoresearch-runtime.log"
 
     if not results_path.exists():
         raise AutoresearchError("interactive run did not produce research-results.tsv")
@@ -314,6 +317,12 @@ def validate_interactive(repo: Path, args: argparse.Namespace) -> None:
         raise AutoresearchError("interactive run did not produce autoresearch-state.json")
     if not lessons_path.exists():
         raise AutoresearchError("interactive run did not produce autoresearch-lessons.md")
+    if launch_path.exists():
+        raise AutoresearchError("foreground interactive run unexpectedly created autoresearch-launch.json")
+    if runtime_path.exists():
+        raise AutoresearchError("foreground interactive run unexpectedly created autoresearch-runtime.json")
+    if runtime_log_path.exists():
+        raise AutoresearchError("foreground interactive run unexpectedly created autoresearch-runtime.log")
 
     parsed = parse_results_log(results_path)
     direction = parsed.metadata.get("metric_direction")
@@ -321,6 +330,9 @@ def validate_interactive(repo: Path, args: argparse.Namespace) -> None:
         raise AutoresearchError("results log is missing a valid metric direction comment")
     summary = log_summary(parsed, direction)
     validate_keep_rows_have_commits(repo, parsed)
+    state_payload = json.loads(state_path.read_text(encoding="utf-8"))
+    if state_payload.get("config", {}).get("session_mode") != "foreground":
+        raise AutoresearchError("foreground interactive run did not record config.session_mode=foreground")
     if summary["main_rows"] < 2:
         raise AutoresearchError("interactive run did not record any main iteration beyond baseline")
     if args.expect_improvement and not improvement(
@@ -374,6 +386,8 @@ def validate_runtime(repo: Path, args: argparse.Namespace) -> None:
         )
     if not isinstance(launch.get("original_goal"), str) or not launch["original_goal"].strip():
         raise AutoresearchError("launch manifest is missing original_goal")
+    if launch.get("config", {}).get("session_mode") != "background":
+        raise AutoresearchError("runtime launch manifest did not record config.session_mode=background")
     if not isinstance(runtime.get("repo"), str) or Path(runtime["repo"]).resolve() != repo:
         raise AutoresearchError("runtime state points at the wrong repo")
     if not log_path.exists():

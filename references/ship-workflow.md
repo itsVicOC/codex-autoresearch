@@ -49,7 +49,7 @@ If type or target is missing, collect:
 
 ## Generic Launch Contract
 
-Ship mode still launches through the same managed runtime as the other interactive iterating modes. Before `go`, the launch manifest must resolve these generic fields:
+Ship mode follows the same interactive launch contract as the other iterating modes. Before `go`, confirm these generic fields plus the run-mode choice (`foreground` or `background`). Background still hands off through a launch manifest and detached runtime; foreground stays in the current Codex session.
 
 - `Goal` -- ship the selected target safely,
 - `Scope` -- files, configs, scripts, and artifacts that may be edited to satisfy the checklist,

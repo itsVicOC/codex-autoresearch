@@ -12,13 +12,13 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
   "run_tag": "<run-tag>",
   "mode": "loop",
   "config": {
+    "session_mode": "foreground",
     "goal": "<goal text>",
     "scope": "<glob pattern>",
     "repos": [
       {"path": "/path/to/primary-repo", "scope": "src/**", "role": "primary"},
       {"path": "/path/to/companion-repo", "scope": "pkg/**", "role": "companion"}
     ],
-    "execution_policy": "danger_full_access",
     "metric": "<metric name>",
     "direction": "lower | higher",
     "verify": "<verify command>",
@@ -46,7 +46,6 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
     "crashes": 1,
     "no_ops": 0,
     "blocked": 0,
-    "splits": 0,
     "consecutive_discards": 2,
     "pivot_count": 0,
     "last_status": "discard"
@@ -55,7 +54,7 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
     "recommended_action": "relaunch | stop | needs_human",
     "should_continue": true,
     "terminal_reason": "none | blocked | iteration_cap_reached | ...",
-    "last_exit_kind": "turn_complete | session_split | terminal | ...",
+    "last_exit_kind": "turn_complete | terminal | ...",
     "last_turn_finished_at": "2026-03-19T08:20:10Z",
     "restart_count": 3,
     "stagnation_count": 0
@@ -65,6 +64,10 @@ The primary recovery source is `autoresearch-state.json`, an atomic-write snapsh
 ```
 
 Write protocol: write to a uniquely named temporary file in the same directory, fsync, then rename to `autoresearch-state.json` (atomic). Never commit this file to git.
+
+`config.session_mode` is the authoritative interactive-mode marker. It distinguishes foreground runs from background managed runs. Foreground runs resume from `research-results.tsv` plus `autoresearch-state.json` alone. Background runs still require a confirmed `autoresearch-launch.json` in addition to results/state.
+
+If an existing interactive run switches from foreground to background or back again, synchronize `autoresearch-state.json` to the chosen mode before continuing. The human-facing skill flow should do this internally when it resumes in the other mode; scripted background `autoresearch_runtime_ctl.py start` performs the same sync automatically before it relaunches nested Codex sessions, and the bundled `autoresearch_set_session_mode.py` helper remains an internal/scripted recovery escape hatch rather than a normal operator step.
 
 `config.repos` is optional for older single-repo states. When present, it is the authoritative managed-repo list: one primary repo plus any companion repos, each with its own scope. `config.scope` remains the primary repo's scope for backward-compatible callers.
 
@@ -91,7 +94,7 @@ If none of these signals are present, proceed with a fresh run (normal wizard fl
 Prefer the bundled helper script over ad hoc TSV/JSON parsing:
 
 ```bash
-python3 <skill-root>/scripts/autoresearch_resume_check.py
+python3 <skill-root>/scripts/autoresearch_resume_check.py --repo /path/to/repo
 ```
 
 Here `<skill-root>` is the directory containing the loaded `SKILL.md`. In the common repo-local install this is usually `.agents/skills/codex-autoresearch`.
@@ -138,7 +141,7 @@ When the helper reports `full_resume`:
 4. Read the lessons file if present.
 5. Let the runtime preflight confirm that the configured verify command still resolves before continuing.
 6. If the current metric drifted, log a `drift` row and continue from the recalibrated state.
-7. Managed-runtime resume requires an existing `autoresearch-launch.json`. Runs that predate that manifest are no longer resumable under the detached runtime; start fresh through the single-entry launch flow instead of synthesizing compatibility artifacts.
+7. Background managed-runtime resume requires an existing `autoresearch-launch.json`. Foreground resume does not. Runs that predate that manifest are no longer resumable under the detached runtime; switch to a fresh background launch instead of synthesizing compatibility artifacts.
 
 ### Priority 2: Mini-Wizard
 
@@ -160,10 +163,10 @@ When JSON is missing or unusable but the helper reports `tsv_fallback`:
 1. Reconstruct retained state from integer main rows in `research-results.tsv`.
 2. If the user wants to resume, prefer:
    ```bash
-   python3 <skill-root>/scripts/autoresearch_resume_check.py --write-repaired-state
+   python3 <skill-root>/scripts/autoresearch_resume_check.py --repo /path/to/repo --write-repaired-state
    ```
 3. Present one condensed confirmation block sourced from the reconstructed state.
-4. After confirmation, create a fresh launch manifest and continue from the next main iteration.
+4. After confirmation, continue from the next main iteration in the chosen mode. Background runs should create a fresh launch manifest at this point; foreground runs resume directly from results/state.
 5. Do not start the detached runtime directly from bare TSV fallback without a confirmed launch manifest.
 
 ### Priority 4: Fresh Start
@@ -187,44 +190,6 @@ If `research-results.tsv` is missing a baseline row, has a broken header, or con
 ### Different Goal
 
 If the recovered config clearly belongs to a different goal than the current request, start fresh and archive the old run-control artifacts to `.prev` through `autoresearch_runtime_ctl.py launch --fresh-start ...`.
-
-## Session Splitting
-
-Long-running sessions accumulate context that may be compacted by the CLI, causing protocol drift. Session splitting is a controlled shutdown that preserves all state for automatic resumption in a fresh session.
-
-### When to Split
-
-Split the session when any of the following is true:
-
-- Context compaction has occurred 2 or more times in the current session
-- The iteration counter has reached 40 or higher
-- The Protocol Fingerprint Check (Phase 8.7) has failed 3 or more times in the current session
-- 10 or more iterations have passed since the last compaction with no improvement in fingerprint check reliability
-
-### How to Split
-
-1. Confirm that `autoresearch-state.json`, `research-results.tsv`, and `autoresearch-lessons.md` are consistent and up to date.
-2. Log a TSV row with status `split` and description `[SESSION-SPLIT] <reason>` (e.g., `[SESSION-SPLIT] compaction count 2, iteration 42`).
-3. Print a completion summary that includes:
-   - Current iteration, retained metric, best metric
-   - Reason for splitting
-   - Instructions: "Re-invoke the skill to resume automatically."
-4. Stop the loop. Do not continue iterating.
-
-### Operator Guidance
-
-The public human entry stays `$codex-autoresearch`.
-
-- New interactive run: answer the confirmation questions, then reply `go`.
-- After approval, Codex writes `autoresearch-launch.json` and starts the detached runtime controller automatically.
-- Later `status`, `stop`, and `resume` requests should still come through the same skill entrypoint.
-
-Advanced backend commands are available when scripting or debugging the controller:
-
-```bash
-python3 <skill-root>/scripts/autoresearch_runtime_ctl.py status --repo /path/to/repo
-python3 <skill-root>/scripts/autoresearch_runtime_ctl.py stop --repo /path/to/repo
-```
 
 
 ## Integration Points

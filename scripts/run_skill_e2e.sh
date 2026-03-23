@@ -20,7 +20,7 @@ Modes:
                      detached runtime launch/status/stop path with a fake Codex,
                      and validate runtime-control artifacts automatically.
   interactive-smoke  Prepare a disposable repo and print the exact manual smoke-test steps
-                     for the interactive wizard + go boundary.
+                     for the interactive wizard + explicit foreground/background choice.
 
 Flags:
   --dangerous        Legacy alias for the default exec-smoke behavior:
@@ -202,11 +202,13 @@ $(sed 's/^/   /' "$repo/prompt.txt")
 3. Expected behavior before launch:
    - Codex scans the repo.
    - Codex asks at least one confirmation question before editing.
+   - Codex requires an explicit run-mode choice: foreground or background.
+   - Choose: foreground
    - You reply: go
 
 4. Expected behavior after "go":
-   - Codex performs a single launch handoff that writes autoresearch-launch.json and starts the detached runtime controller.
-   - Codex stops asking questions.
+   - Codex stays in the same foreground session and iterates live.
+   - Codex does not create autoresearch-launch.json, autoresearch-runtime.json, or autoresearch-runtime.log.
    - It iterates autonomously until tests pass or you interrupt it.
 
 5. After you stop the run, validate artifacts:

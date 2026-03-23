@@ -22,7 +22,7 @@ Modes:
          - real codex exec smoke test
 
 Notes:
-  - Interactive wizard wording / ask-before-act quality still requires a manual smoke run:
+  - Interactive wizard wording / ask-before-act quality still requires a manual foreground smoke run:
       bash scripts/run_skill_e2e.sh interactive-smoke
   - The launch/status/stop control-plane handoff is covered automatically by:
       bash scripts/run_skill_e2e.sh runtime-smoke --clean

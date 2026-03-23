@@ -89,6 +89,19 @@ def results_repo_root(results_path: Path) -> Path:
     return find_repo_root(context)
 
 
+def resolve_repo_path(repo_arg: str | None) -> Path:
+    return find_repo_root(Path(repo_arg or Path.cwd())).resolve()
+
+
+def resolve_repo_relative(repo: Path, raw: str | None, default_path: Path) -> Path:
+    if raw is None:
+        return default_path
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = repo / candidate
+    return candidate.resolve()
+
+
 def resolve_repo_managed_path(
     requested_path: str | None,
     *,

@@ -15,6 +15,8 @@ from autoresearch_helpers import (
     parse_decimal,
     parse_results_log,
     read_state_payload,
+    resolve_repo_path,
+    resolve_repo_relative,
     resolve_state_path_for_log,
     utc_now,
     write_json_atomic,
@@ -22,6 +24,7 @@ from autoresearch_helpers import (
 )
 
 
+DEFAULT_RESULTS_PATH = "research-results.tsv"
 RELAUNCH = "relaunch"
 STOP = "stop"
 NEEDS_HUMAN = "needs_human"
@@ -46,7 +49,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Decide whether an external autoresearch supervisor should relaunch Codex, stop, or ask for human help."
     )
-    parser.add_argument("--results-path", default="research-results.tsv")
+    parser.add_argument(
+        "--repo",
+        help="Primary repo root. Preferred entrypoint when inspecting supervisor state.",
+    )
+    parser.add_argument(
+        "--results-path",
+        help=(
+            "Results log path. Overrides the repo-derived default when provided. "
+            f"Defaults to {DEFAULT_RESULTS_PATH} in --repo or the current directory."
+        ),
+    )
     parser.add_argument(
         "--state-path",
         help=(
@@ -229,10 +242,6 @@ def determine_base_decision(
         )
         return STOP, "iteration_cap_reached", "terminal", reasons
 
-    if last_status == "split":
-        reasons.append("Last recorded status is split; restart is the expected continuation path.")
-        return RELAUNCH, "session_split", "session_split", reasons
-
     reasons.append(
         f"Last recorded status is {last_status!r}; the loop remains resumable and should continue in a fresh Codex session."
     )
@@ -370,8 +379,14 @@ def main() -> int:
     if args.max_stagnation < 1:
         raise SystemExit("error: --max-stagnation must be at least 1")
 
+    if args.repo is not None:
+        repo = resolve_repo_path(args.repo)
+        results_path = resolve_repo_relative(repo, args.results_path, repo / DEFAULT_RESULTS_PATH)
+    else:
+        results_path = Path(args.results_path or DEFAULT_RESULTS_PATH)
+
     output = evaluate_supervisor_status(
-        results_path=Path(args.results_path),
+        results_path=results_path,
         state_path_arg=args.state_path,
         max_stagnation=args.max_stagnation,
         after_run=args.after_run,

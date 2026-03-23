@@ -129,6 +129,60 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             self.assertEqual(status["decision"], "needs_human")
             self.assertEqual(status["reason"], "blocked")
 
+    def test_supervisor_status_accepts_repo_as_primary_entrypoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            results_path = tmpdir / "research-results.tsv"
+            state_path = tmpdir / "autoresearch-state.json"
+
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(results_path),
+                "--state-path",
+                str(state_path),
+                "--mode",
+                "loop",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "pytest -q",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "a1b2c3d",
+                "--baseline-description",
+                "baseline failures",
+            )
+            self.run_script(
+                "autoresearch_record_iteration.py",
+                "--results-path",
+                str(results_path),
+                "--state-path",
+                str(state_path),
+                "--status",
+                "blocked",
+                "--description",
+                "external dependency vanished",
+            )
+
+            status = self.run_script(
+                "autoresearch_supervisor_status.py",
+                "--repo",
+                str(tmpdir),
+                "--after-run",
+            )
+            self.assertEqual(status["decision"], "needs_human")
+            self.assertEqual(status["reason"], "blocked")
+            self.assertEqual(Path(status["results_path"]).resolve(), results_path.resolve())
+            self.assertEqual(Path(status["state_path"]).resolve(), state_path.resolve())
+
     def test_supervisor_status_stops_at_iteration_cap(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
@@ -697,6 +751,7 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             self.assertIn("$codex-autoresearch", prompt)
             self.assertIn("The human already completed the confirmation phase", prompt)
             self.assertIn(f"Use {launch_path}", prompt)
+            self.assertIn("Session mode: background", prompt)
             self.assertIn("Do not run the interactive wizard again.", prompt)
             self.assertIn("Stop condition: stop when metric reaches 0", prompt)
 
@@ -760,6 +815,39 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
                 (repo / "autoresearch-runtime.json").resolve(),
             )
 
+    def test_launch_gate_accepts_repo_as_primary_entrypoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            self.create_launch_manifest(tmpdir)
+
+            gate = self.run_script(
+                "autoresearch_launch_gate.py",
+                "--repo",
+                str(tmpdir),
+            )
+            self.assertEqual(gate["decision"], "fresh")
+            self.assertEqual(gate["reason"], "confirmed_launch_without_artifacts")
+            self.assertEqual(Path(gate["results_path"]).resolve(), (tmpdir / "research-results.tsv").resolve())
+            self.assertEqual(Path(gate["launch_path"]).resolve(), (tmpdir / "autoresearch-launch.json").resolve())
+            self.assertEqual(Path(gate["runtime_path"]).resolve(), (tmpdir / "autoresearch-runtime.json").resolve())
+
+    def test_launch_gate_repo_subdirectory_resolves_to_actual_repo_root(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            subprocess.run(["git", "init", str(tmpdir)], check=True, capture_output=True, text=True)
+            nested = tmpdir / "nested" / "deeper"
+            nested.mkdir(parents=True)
+            self.create_launch_manifest(tmpdir)
+
+            gate = self.run_script(
+                "autoresearch_launch_gate.py",
+                "--repo",
+                str(nested),
+            )
+            self.assertEqual(Path(gate["results_path"]).resolve(), (tmpdir / "research-results.tsv").resolve())
+            self.assertEqual(Path(gate["launch_path"]).resolve(), (tmpdir / "autoresearch-launch.json").resolve())
+            self.assertEqual(Path(gate["runtime_path"]).resolve(), (tmpdir / "autoresearch-runtime.json").resolve())
+
     def test_resume_prompt_uses_repo_relative_manifest_defaults_from_results_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
@@ -822,6 +910,59 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
                 prompt.replace("/var/", "/private/var/"),
             )
 
+    def test_resume_prompt_accepts_repo_as_primary_entrypoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            repo = tmpdir / "repo"
+            repo.mkdir()
+
+            launch = self.create_launch_manifest(
+                repo,
+                original_goal="Make the test suite healthier overnight",
+                guard="python -m py_compile src",
+                stop_condition="stop when metric reaches 0",
+            )
+            results_path = repo / "research-results.tsv"
+            state_path = repo / "autoresearch-state.json"
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(results_path),
+                "--state-path",
+                str(state_path),
+                "--mode",
+                "loop",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "pytest -q",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "a1b2c3d",
+                "--baseline-description",
+                "baseline failures",
+            )
+
+            prompt = self.run_script_text(
+                "autoresearch_resume_prompt.py",
+                "--repo",
+                str(repo),
+            )
+            normalized = prompt.replace("/private/private/var/", "/private/var/")
+            self.assertIn(
+                f"Use {Path(launch['launch_path']).resolve()} as the authoritative launch manifest.",
+                normalized,
+            )
+            self.assertIn(f"Results path: {results_path.resolve()}", normalized)
+            self.assertIn(f"State path: {state_path.resolve()}", normalized)
+
     def test_create_launch_manifest_persists_managed_repo_targets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -837,6 +978,7 @@ class AutoresearchSupervisorLaunchTest(AutoresearchScriptsTestBase):
             )
 
             manifest = json.loads(Path(str(launch["launch_path"])).read_text(encoding="utf-8"))
+            self.assertEqual(manifest["config"]["session_mode"], "background")
             self.assertEqual(manifest["config"]["scope"], "src/**/*.py")
             self.assertEqual(manifest["config"]["execution_policy"], "danger_full_access")
             self.assertEqual(

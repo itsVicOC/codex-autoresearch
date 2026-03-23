@@ -79,6 +79,8 @@ class AutoresearchResultsRowsTest(AutoresearchScriptsTestBase):
             )
 
             state = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(state["config"]["session_mode"], "foreground")
+            self.assertNotIn("execution_policy", state["config"])
             self.assertEqual(state["state"]["iteration"], 2)
             self.assertEqual(state["state"]["current_metric"], 8)
             self.assertEqual(state["state"]["best_metric"], 8)
@@ -97,6 +99,50 @@ class AutoresearchResultsRowsTest(AutoresearchScriptsTestBase):
             )
             self.assertEqual(resume["decision"], "full_resume")
             self.assertEqual(resume["tsv_summary"]["iteration"], 2)
+            self.assertFalse((tmpdir / "autoresearch-launch.json").exists())
+            self.assertFalse((tmpdir / "autoresearch-runtime.json").exists())
+            self.assertFalse((tmpdir / "autoresearch-runtime.log").exists())
+
+    def test_resume_check_accepts_repo_as_primary_entrypoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            results_path = tmpdir / "research-results.tsv"
+            state_path = tmpdir / "autoresearch-state.json"
+
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(results_path),
+                "--state-path",
+                str(state_path),
+                "--mode",
+                "loop",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "python3 -c pass",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "a1b2c3d",
+                "--baseline-description",
+                "baseline failures",
+            )
+
+            resume = self.run_script(
+                "autoresearch_resume_check.py",
+                "--repo",
+                str(tmpdir),
+            )
+            self.assertEqual(resume["decision"], "full_resume")
+            self.assertEqual(Path(resume["results_path"]).resolve(), results_path.resolve())
+            self.assertEqual(Path(resume["state_path"]).resolve(), state_path.resolve())
 
     def test_multi_repo_provenance_is_persisted_in_state_for_init_and_iterations(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -139,6 +185,7 @@ class AutoresearchResultsRowsTest(AutoresearchScriptsTestBase):
             )
 
             state = json.loads(state_path.read_text(encoding="utf-8"))
+            self.assertEqual(state["config"]["session_mode"], "foreground")
             self.assertEqual(
                 state["state"]["last_repo_commits"],
                 {
@@ -607,7 +654,6 @@ class AutoresearchResultsRowsTest(AutoresearchScriptsTestBase):
                             "crashes": 0,
                             "no_ops": 0,
                             "blocked": 0,
-                            "splits": 0,
                             "consecutive_discards": 0,
                             "pivot_count": 0,
                             "last_status": "keep",
@@ -699,7 +745,6 @@ class AutoresearchResultsRowsTest(AutoresearchScriptsTestBase):
                             "crashes": 0,
                             "no_ops": 0,
                             "blocked": 0,
-                            "splits": 0,
                             "consecutive_discards": 0,
                             "pivot_count": 0,
                             "last_status": "keep",

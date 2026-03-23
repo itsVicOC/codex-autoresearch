@@ -92,7 +92,6 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                             "crashes": 0,
                             "no_ops": 0,
                             "blocked": 0,
-                            "splits": 0,
                             "consecutive_discards": 0,
                             "pivot_count": 0,
                             "last_status": "baseline",
@@ -164,12 +163,171 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             self.assertTrue((tmpdir / "autoresearch-runtime.prev.log").exists())
             manifest = json.loads((tmpdir / "autoresearch-launch.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["original_goal"], "New goal")
+            self.assertEqual(manifest["config"]["session_mode"], "background")
 
             stopped = self.run_script(
                 "autoresearch_runtime_ctl.py",
                 "stop",
                 "--repo",
                 str(tmpdir),
+            )
+            self.assertEqual(stopped["status"], "stopped")
+
+    def test_runtime_start_syncs_existing_foreground_state_to_background(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            fake_codex_path = tmpdir / "fake-codex"
+            self.write_sleeping_fake_codex(fake_codex_path)
+
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(tmpdir / "research-results.tsv"),
+                "--state-path",
+                str(tmpdir / "autoresearch-state.json"),
+                "--mode",
+                "loop",
+                "--session-mode",
+                "foreground",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "python3 -c pass",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "base111",
+                "--baseline-description",
+                "baseline failures",
+            )
+
+            launched = self.launch_runtime(
+                tmpdir,
+                fake_codex_path=fake_codex_path,
+                original_goal="Resume in background",
+                goal="Reduce failures",
+            )
+            self.assertEqual(launched["status"], "running")
+
+            state = json.loads((tmpdir / "autoresearch-state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["config"]["session_mode"], "background")
+            self.assertEqual(state["config"]["execution_policy"], "danger_full_access")
+
+            stopped = self.run_script(
+                "autoresearch_runtime_ctl.py",
+                "stop",
+                "--repo",
+                str(tmpdir),
+            )
+            self.assertEqual(stopped["status"], "stopped")
+
+    def test_multi_repo_background_foreground_background_switch_keeps_shared_state_consistent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools_tmp:
+            root = Path(tmp)
+            tool_dir = Path(tools_tmp)
+            primary = root / "primary"
+            companion_a = root / "companion_a"
+            companion_b = root / "companion_b"
+            for repo in (primary, companion_a, companion_b):
+                repo.mkdir()
+                subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+                subprocess.run(["git", "config", "user.email", "a@b.c"], cwd=repo, check=True)
+                subprocess.run(["git", "config", "user.name", "t"], cwd=repo, check=True)
+
+            fake_codex_path = tool_dir / "fake-codex"
+            self.write_sleeping_fake_codex(fake_codex_path)
+
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(primary / "research-results.tsv"),
+                "--state-path",
+                str(primary / "autoresearch-state.json"),
+                "--mode",
+                "loop",
+                "--session-mode",
+                "background",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/",
+                "--companion-repo-scope",
+                f"{companion_a}=pkg/",
+                "--companion-repo-scope",
+                f"{companion_b}=lib/",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "python3 -c pass",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "base111",
+                "--baseline-description",
+                "baseline failures",
+            )
+
+            launched = self.launch_runtime(
+                primary,
+                fake_codex_path=fake_codex_path,
+                scope="src/",
+                companion_repo_scopes=[
+                    f"{companion_a}=pkg/",
+                    f"{companion_b}=lib/",
+                ],
+            )
+            self.assertEqual(launched["status"], "running")
+
+            stopped = self.run_script(
+                "autoresearch_runtime_ctl.py",
+                "stop",
+                "--repo",
+                str(primary),
+            )
+            self.assertEqual(stopped["status"], "stopped")
+
+            switched = self.run_script(
+                "autoresearch_set_session_mode.py",
+                "--repo",
+                str(primary),
+                "--session-mode",
+                "foreground",
+            )
+            self.assertEqual(switched["session_mode"], "foreground")
+
+            state = json.loads((primary / "autoresearch-state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["config"]["session_mode"], "foreground")
+            self.assertNotIn("execution_policy", state["config"])
+            self.assertTrue((primary / "autoresearch-launch.json").exists())
+            self.assertTrue((primary / "autoresearch-runtime.json").exists())
+
+            restarted = self.run_script(
+                "autoresearch_runtime_ctl.py",
+                "start",
+                "--repo",
+                str(primary),
+                "--codex-bin",
+                str(fake_codex_path),
+            )
+            self.assertEqual(restarted["status"], "running")
+
+            state = json.loads((primary / "autoresearch-state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["config"]["session_mode"], "background")
+            self.assertEqual(state["config"]["execution_policy"], "danger_full_access")
+
+            stopped = self.run_script(
+                "autoresearch_runtime_ctl.py",
+                "stop",
+                "--repo",
+                str(primary),
             )
             self.assertEqual(stopped["status"], "stopped")
 
@@ -690,12 +848,8 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
 
             gate = self.run_script(
                 "autoresearch_launch_gate.py",
-                "--results-path",
-                str(tmpdir / "research-results.tsv"),
-                "--launch-path",
-                str(tmpdir / "autoresearch-launch.json"),
-                "--runtime-path",
-                str(tmpdir / "autoresearch-runtime.json"),
+                "--repo",
+                str(tmpdir),
             )
             self.assertEqual(gate["decision"], "blocked_start")
             self.assertEqual(gate["reason"], "already_running")
@@ -764,7 +918,7 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                     f'init_script="{SCRIPTS_DIR / "autoresearch_init_run.py"}"',
                     f'record_script="{SCRIPTS_DIR / "autoresearch_record_iteration.py"}"',
                     'if [[ "$count" -eq 1 ]]; then',
-                    '  "$python_bin" "$init_script" --results-path research-results.tsv --state-path autoresearch-state.json --mode loop --goal "Reduce failures" --scope "src/**/*.py" --metric-name "failure count" --direction lower --verify "pytest -q" --baseline-metric 10 --baseline-commit a1b2c3d --baseline-description "baseline failures"',
+                    '  "$python_bin" "$init_script" --results-path research-results.tsv --state-path autoresearch-state.json --mode loop --session-mode background --goal "Reduce failures" --scope "src/**/*.py" --metric-name "failure count" --direction lower --verify "pytest -q" --baseline-metric 10 --baseline-commit a1b2c3d --baseline-description "baseline failures"',
                     '  "$python_bin" "$record_script" --results-path research-results.tsv --state-path autoresearch-state.json --status pivot --description "close this branch and continue with a new strategy"',
                     "else",
                     '  "$python_bin" "$record_script" --results-path research-results.tsv --state-path autoresearch-state.json --status blocked --description "external dependency vanished"',
@@ -794,6 +948,7 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             state = json.loads(state_path.read_text(encoding="utf-8"))
             self.assertEqual(state["state"]["iteration"], 2)
             self.assertEqual(state["state"]["last_status"], "blocked")
+            self.assertEqual(state["config"]["session_mode"], "background")
             self.assertEqual(state["supervisor"]["recommended_action"], "needs_human")
             self.assertEqual(state["supervisor"]["terminal_reason"], "blocked")
             self.assertEqual(state["supervisor"]["restart_count"], 2)
@@ -848,7 +1003,7 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                     f'init_script="{SCRIPTS_DIR / "autoresearch_init_run.py"}"',
                     f'record_script="{SCRIPTS_DIR / "autoresearch_record_iteration.py"}"',
                     'if [[ ! -f "research-results.tsv" ]]; then',
-                    '  "$python_bin" "$init_script" --results-path research-results.tsv --state-path autoresearch-state.json --mode loop --goal "Reduce failures" --scope "src/**/*.py" --metric-name "failure count" --direction lower --verify "pytest -q" --baseline-metric 10 --baseline-commit a1b2c3d --baseline-description "baseline failures"',
+                    '  "$python_bin" "$init_script" --results-path research-results.tsv --state-path autoresearch-state.json --mode loop --session-mode background --goal "Reduce failures" --scope "src/**/*.py" --metric-name "failure count" --direction lower --verify "pytest -q" --baseline-metric 10 --baseline-commit a1b2c3d --baseline-description "baseline failures"',
                     "fi",
                     '  "$python_bin" "$record_script" --results-path research-results.tsv --state-path autoresearch-state.json --status blocked --description "validation complete"',
                 ],
@@ -904,7 +1059,7 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                     f'init_script="{SCRIPTS_DIR / "autoresearch_init_run.py"}"',
                     f'record_script="{SCRIPTS_DIR / "autoresearch_record_iteration.py"}"',
                     'if [[ ! -f "research-results.tsv" ]]; then',
-                    '  "$python_bin" "$init_script" --results-path research-results.tsv --state-path autoresearch-state.json --mode loop --goal "Reduce failures" --scope "src/**/*.py" --metric-name "failure count" --direction lower --verify "pytest -q" --execution-policy workspace_write --baseline-metric 10 --baseline-commit a1b2c3d --baseline-description "baseline failures"',
+                    '  "$python_bin" "$init_script" --results-path research-results.tsv --state-path autoresearch-state.json --mode loop --session-mode background --goal "Reduce failures" --scope "src/**/*.py" --metric-name "failure count" --direction lower --verify "pytest -q" --execution-policy workspace_write --baseline-metric 10 --baseline-commit a1b2c3d --baseline-description "baseline failures"',
                     "fi",
                     '  "$python_bin" "$record_script" --results-path research-results.tsv --state-path autoresearch-state.json --status blocked --description "validation complete"',
                 ],

@@ -9,12 +9,15 @@ from autoresearch_helpers import (
     format_repo_target_label,
     repo_targets_from_config,
     read_launch_manifest,
+    resolve_repo_path,
+    resolve_repo_relative,
     results_repo_root,
     resolve_repo_managed_path,
 )
 from autoresearch_launch_gate import evaluate_launch_context
 
 
+DEFAULT_RESULTS_PATH = "research-results.tsv"
 OPTIONAL_CONFIG_FIELDS = (
     ("execution_policy", "Execution policy"),
     ("guard", "Guard"),
@@ -47,6 +50,7 @@ def build_runtime_prompt(
         f"Runtime launch decision: {decision} ({strategy}).",
         "",
         f"Original ask: {launch_manifest['original_goal']}",
+        f"Session mode: {config.get('session_mode', 'background')}",
         f"Mode: {launch_manifest.get('mode', 'loop')}",
         f"Goal: {config.get('goal', '')}",
         f"Scope: {repo_targets[0].scope}",
@@ -76,6 +80,7 @@ def build_runtime_prompt(
             "- Do not ask the user for launch confirmation again.",
             "- If results/state artifacts exist, resume from them.",
             "- If they do not exist yet, initialize a fresh run from the launch manifest.",
+            "- When initializing fresh artifacts for this managed run, call autoresearch_init_run.py with --session-mode background.",
             "- Continue autonomously until a terminal condition or blocker is reached.",
             "- Keep all run-control decisions aligned with the launch manifest and current state.",
         ]
@@ -87,7 +92,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Generate the runtime-managed resume prompt from the launch manifest and current state."
     )
-    parser.add_argument("--results-path", default="research-results.tsv")
+    parser.add_argument(
+        "--repo",
+        help="Primary repo root. Preferred entrypoint when generating a runtime-managed prompt.",
+    )
+    parser.add_argument(
+        "--results-path",
+        help=(
+            "Results log path. Overrides the repo-derived default when provided. "
+            f"Defaults to {DEFAULT_RESULTS_PATH} in --repo or the current directory."
+        ),
+    )
     parser.add_argument("--state-path")
     parser.add_argument("--launch-path")
     parser.add_argument("--runtime-path")
@@ -97,18 +112,23 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    results_path = Path(args.results_path)
-
-    launch_path = resolve_repo_managed_path(
-        args.launch_path,
-        results_path=results_path,
-        default_name="autoresearch-launch.json",
-    )
-    runtime_path = resolve_repo_managed_path(
-        args.runtime_path,
-        results_path=results_path,
-        default_name="autoresearch-runtime.json",
-    )
+    if args.repo is not None:
+        repo = resolve_repo_path(args.repo)
+        results_path = resolve_repo_relative(repo, args.results_path, repo / DEFAULT_RESULTS_PATH)
+        launch_path = resolve_repo_relative(repo, args.launch_path, repo / "autoresearch-launch.json")
+        runtime_path = resolve_repo_relative(repo, args.runtime_path, repo / "autoresearch-runtime.json")
+    else:
+        results_path = Path(args.results_path or DEFAULT_RESULTS_PATH)
+        launch_path = resolve_repo_managed_path(
+            args.launch_path,
+            results_path=results_path,
+            default_name="autoresearch-launch.json",
+        )
+        runtime_path = resolve_repo_managed_path(
+            args.runtime_path,
+            results_path=results_path,
+            default_name="autoresearch-runtime.json",
+        )
     context = evaluate_launch_context(
         results_path=results_path,
         state_path_arg=args.state_path,

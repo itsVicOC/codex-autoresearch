@@ -9,11 +9,18 @@ from typing import Any
 
 from autoresearch_helpers import (
     AutoresearchError,
+    default_launch_manifest_path,
+    default_runtime_state_path,
     read_launch_manifest,
     read_runtime_payload,
+    resolve_repo_path,
+    resolve_repo_relative,
     resolve_repo_managed_path,
 )
 from autoresearch_resume_check import evaluate_resume_state
+
+
+DEFAULT_RESULTS_PATH = "research-results.tsv"
 
 
 def pid_is_alive(pid: int | None) -> bool:
@@ -255,7 +262,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Decide whether autoresearch should fresh-start, resume, or escalate to a human."
     )
-    parser.add_argument("--results-path", default="research-results.tsv")
+    parser.add_argument(
+        "--repo",
+        help="Primary repo root. Recommended user-facing entrypoint; defaults managed paths under this repo.",
+    )
+    parser.add_argument(
+        "--results-path",
+        help=(
+            "Results log path. Overrides the repo-derived default when provided. "
+            f"Defaults to {DEFAULT_RESULTS_PATH} in --repo or the current directory."
+        ),
+    )
     parser.add_argument("--state-path")
     parser.add_argument("--launch-path")
     parser.add_argument("--runtime-path")
@@ -265,20 +282,29 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    results_path = Path(args.results_path)
-    decision = evaluate_launch_context(
-        results_path=results_path,
-        state_path_arg=args.state_path,
-        launch_path=resolve_repo_managed_path(
+    repo: Path | None = None
+    if args.repo is not None:
+        repo = resolve_repo_path(args.repo)
+        results_path = resolve_repo_relative(repo, args.results_path, repo / DEFAULT_RESULTS_PATH)
+        launch_path = resolve_repo_relative(repo, args.launch_path, default_launch_manifest_path(repo))
+        runtime_path = resolve_repo_relative(repo, args.runtime_path, default_runtime_state_path(repo))
+    else:
+        results_path = Path(args.results_path or DEFAULT_RESULTS_PATH)
+        launch_path = resolve_repo_managed_path(
             args.launch_path,
             results_path=results_path,
             default_name="autoresearch-launch.json",
-        ),
-        runtime_path=resolve_repo_managed_path(
+        )
+        runtime_path = resolve_repo_managed_path(
             args.runtime_path,
             results_path=results_path,
             default_name="autoresearch-runtime.json",
-        ),
+        )
+    decision = evaluate_launch_context(
+        results_path=results_path,
+        state_path_arg=args.state_path,
+        launch_path=launch_path,
+        runtime_path=runtime_path,
         ignore_running_runtime=False,
     )
     print(json.dumps(decision, indent=2, sort_keys=True))

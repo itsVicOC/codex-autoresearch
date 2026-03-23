@@ -24,6 +24,7 @@ from autoresearch_helpers import (
     write_json_atomic,
     write_results_log,
 )
+from autoresearch_core import SESSION_MODE_CHOICES
 from autoresearch_preflight import evaluate_managed_repos_preflight
 from autoresearch_runtime_common import DEFAULT_EXECUTION_POLICY, EXECUTION_POLICY_CHOICES
 
@@ -42,6 +43,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="State JSON path. Defaults to autoresearch-state.json, except exec mode uses scratch state under /tmp.",
     )
     parser.add_argument("--mode", required=True)
+    parser.add_argument(
+        "--session-mode",
+        choices=SESSION_MODE_CHOICES,
+        help=(
+            "Session mode for interactive runs. Defaults to foreground for non-exec runs. "
+            "Exec remains a separate headless path."
+        ),
+    )
     parser.add_argument("--goal", required=True)
     parser.add_argument("--scope", required=True)
     parser.add_argument(
@@ -147,11 +156,14 @@ def main() -> int:
     )
     write_results_log(results_path, comments, [baseline_row])
 
+    session_mode = args.session_mode
+    if args.mode != "exec" and session_mode is None:
+        session_mode = "foreground"
+
     config = {
         "goal": args.goal,
         "scope": repo_targets[0].scope,
         "repos": serialize_repo_targets(repo_targets),
-        "execution_policy": args.execution_policy,
         "metric": args.metric_name,
         "direction": args.direction,
         "verify": args.verify,
@@ -162,6 +174,10 @@ def main() -> int:
         "parallel_mode": args.parallel_mode,
         "web_search": args.web_search,
     }
+    if session_mode is not None:
+        config["session_mode"] = session_mode
+    if args.mode == "exec" or session_mode == "background":
+        config["execution_policy"] = args.execution_policy
     summary = {
         "iteration": 0,
         "baseline_metric": baseline_metric,
@@ -176,7 +192,6 @@ def main() -> int:
         "crashes": 0,
         "no_ops": 0,
         "blocked": 0,
-        "splits": 0,
         "consecutive_discards": 0,
         "pivot_count": 0,
         "last_status": "baseline",
@@ -205,6 +220,7 @@ def main() -> int:
                 "baseline_metric": decimal_to_json_number(baseline_metric),
                 "baseline_commit": args.baseline_commit,
                 "parallel_mode": args.parallel_mode,
+                "session_mode": session_mode,
                 "message": f"Initialized run at baseline metric {format_decimal(baseline_metric)}.",
             },
             indent=2,

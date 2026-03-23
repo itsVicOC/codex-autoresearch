@@ -14,11 +14,14 @@ from autoresearch_helpers import (
     parse_log_metadata,
     parse_results_log,
     read_state_payload,
+    resolve_repo_path,
+    resolve_repo_relative,
     resolve_state_path_for_log,
     write_json_atomic,
 )
 
 
+DEFAULT_RESULTS_PATH = "research-results.tsv"
 REQUIRED_RESUME_CONFIG_FIELDS = ("goal", "scope", "metric", "direction", "verify")
 
 
@@ -42,7 +45,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Check whether a prior run can resume from JSON state, TSV state, or needs a fresh start."
     )
-    parser.add_argument("--results-path", default="research-results.tsv")
+    parser.add_argument(
+        "--repo",
+        help="Primary repo root. Recommended user-facing entrypoint for resume inspection.",
+    )
+    parser.add_argument(
+        "--results-path",
+        help=(
+            "Results log path. Overrides the repo-derived default when provided. "
+            f"Defaults to {DEFAULT_RESULTS_PATH} in --repo or the current directory."
+        ),
+    )
     parser.add_argument(
         "--state-path",
         help=(
@@ -206,7 +219,11 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
 
-    results_path = Path(args.results_path)
+    if args.repo is not None:
+        repo = resolve_repo_path(args.repo)
+        results_path = resolve_repo_relative(repo, args.results_path, repo / DEFAULT_RESULTS_PATH)
+    else:
+        results_path = Path(args.results_path or DEFAULT_RESULTS_PATH)
     output = evaluate_resume_state(
         results_path=results_path,
         state_path_arg=args.state_path,
