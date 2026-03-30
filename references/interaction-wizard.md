@@ -23,6 +23,7 @@ When this file mentions `<skill-root>`, it means the directory containing the lo
 9. The user should never see raw field names (Goal, Scope, Metric, Direction, Verify, Guard). Translate everything into natural conversation.
 10. After the user approves the summary, follow the chosen run mode directly from the same skill entrypoint. Foreground stays in the current session; background persists the confirmed launch manifest and starts the runtime controller. Do not tell the user to switch to a different wrapper command.
 11. End the confirmation summary with a short runtime checklist that reinforces execution order: baseline first, then initialize artifacts, and always log a completed experiment before starting the next one.
+12. For clearly long-running foreground/background runs, check `python3 <skill-root>/scripts/autoresearch_hooks_ctl.py status` before the final mode choice. If hooks are missing, give one short note that helps the user choose intelligently: `background` can benefit immediately if hooks are installed before launch, while the current `foreground` session cannot hot-reload them. Do not ask for installation yet, and never install them without explicit user approval.
 
 ## Clarification Protocol
 
@@ -75,6 +76,11 @@ Before launching, present a structured confirmation summary. The user should be 
 - Log every completed experiment before the next one starts.
 - Use helper scripts for authoritative row/state updates.
 
+**Long-run note**
+- Optional hooks are not installed.
+- `background` can benefit immediately if I install them before launch.
+- The current `foreground` session cannot pick them up; that path would need a new Codex session later if you want hooks there.
+
 **Next step**
 - Choose foreground or background, then reply "go" to start, or tell me what to change.
 ```
@@ -99,6 +105,11 @@ Before launching, present a structured confirmation summary. The user should be 
 - 每完成一次实验，必须先落表，再开始下一次。
 - 结果行和状态更新都交给 helper 脚本。
 
+**长跑提示**
+- 目前还没有安装可选 hooks。
+- 如果我在启动前安装，`background` 可以立刻受益。
+- 当前这个 `foreground` 会话不会吃到 hooks；如果你想让前台也用上它，需要之后在新的 Codex 会话里继续。
+
 **下一步**
 - 先选择 foreground 或 background，再回复 "go" 启动，或告诉我要改什么。
 ```
@@ -113,6 +124,7 @@ Before launching, present a structured confirmation summary. The user should be 
 6. If run mode is still undecided, list it under "Need to confirm" and then ask the user to choose foreground or background. Do not omit the summary just because run mode is the only remaining blocker.
 7. Only show "Required keep labels" and/or "Required stop labels" when the goal truly has structural success requirements beyond the numeric target.
 8. Keep the runtime checklist short. It exists to reinforce execution order, not to restate the whole protocol.
+9. Only show the optional "Long-run note" when the run is clearly long-running and `autoresearch_hooks_ctl.py status` says hooks are missing.
 
 The user replies "go", "start", "launch", or corrects something. No field names, no YAML, no structured input required.
 
@@ -121,14 +133,21 @@ The user replies "go", "start", "launch", or corrects something. No field names,
 When the user replies with launch approval (`go`, `start`, `launch`, or an equivalent clear confirmation):
 
 1. Require an explicit run-mode choice: **foreground** or **background**.
-2. If the user chose **foreground**, keep the loop in the current Codex session:
+2. For clearly long-running runs (overnight, unattended, or broad foreground/background loops), inspect `autoresearch_hooks_ctl.py status` before the final handoff.
+   - If hooks are missing, surface the short mode-shaping note **before** the user chooses `foreground` or `background`.
+   - Do not turn that note into an install decision yet; it exists to help the user choose the run mode with complete information.
+3. After the user chooses a run mode, decide whether to offer installation:
+   - If the user chose **background** and hooks are missing, explain that installing now will help this background run immediately because the detached runtime will launch new nested Codex sessions after installation. Offer installation only with explicit user approval.
+   - If the user chose **foreground** and hooks are missing, explain that the current foreground session will not pick them up. Offer two clear paths: continue the current foreground run without hooks, or install hooks and continue from a **new Codex session** (for example via `codex resume`).
+   - Never install hooks without explicit user approval.
+4. If the user chose **foreground**, keep the loop in the current Codex session:
    - initialize `research-results.tsv` and `autoresearch-state.json`
    - do not create `autoresearch-launch.json`, `autoresearch-runtime.json`, or `autoresearch-runtime.log`
    - keep the runtime checklist active: baseline first, then log every completed experiment before the next one starts
    - report that the foreground run has started in the current session
-3. If the user chose **background**, persist the confirmed config to `autoresearch-launch.json`, start the detached runtime controller, and report where the runtime/log artifacts live.
+5. If the user chose **background**, persist the confirmed config to `autoresearch-launch.json`, start the detached runtime controller, and report where the runtime/log artifacts live.
    - the nested background session must receive the same runtime checklist, especially the "log before the next experiment" rule
-4. Do not ask the user to rerun a shell wrapper command just to continue overnight.
+6. Do not ask the user to rerun a shell wrapper command just to continue overnight.
 
 If the chosen path is **Fresh start** after recovery analysis, the handoff should be:
 

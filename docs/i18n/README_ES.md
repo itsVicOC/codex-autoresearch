@@ -88,6 +88,25 @@ Las mejoras se acumulan. Los fallos se revierten. Todo queda registrado.
 
 Mas opciones de instalacion en [INSTALL.md](../INSTALL.md). Manual completo en [GUIDE.md](../GUIDE.md).
 
+### Hooks opcionales para ejecuciones largas
+
+Si esperas que una ejecucion en `foreground` o `background` permanezca activa durante mucho tiempo, puedes instalar los hooks opcionales de Codex a nivel de usuario:
+
+```bash
+python3 .agents/skills/codex-autoresearch/scripts/autoresearch_hooks_ctl.py install
+```
+
+Anaden:
+
+- un re-anchor de `SessionStart` que vuelve a inyectar la checklist corta de runtime en sesiones nuevas posteriores
+- un hook `Stop` que solo impide que Codex cierre la sesion cuando el run de autoresearch sigue pareciendo reanudable
+
+Estos hooks afectan **solo a sesiones futuras**.
+
+- La sesion de foreground que ya esta abierta **no** los cargara en caliente.
+- Si los instalas antes de lanzar `background`, las nuevas sesiones anidadas `codex exec` de ese run los tomaran de inmediato.
+- Si quieres la misma proteccion para `foreground`, instalalos primero, luego abre una **nueva sesion de Codex** (por ejemplo con `codex resume`) y continua el run alli.
+
 ---
 
 ## Que hace

@@ -69,6 +69,32 @@ Expected behavior:
 - loads the relevant workflow for the request,
 - and collects any missing fields via the wizard.
 
+## Optional Long-Running Hooks
+
+If you want better long-running continuity in both `foreground` and `background`, install the optional user-level Codex hooks:
+
+```bash
+python3 /absolute/path/to/codex-autoresearch/scripts/autoresearch_hooks_ctl.py install
+```
+
+Inspect the current state first if you want:
+
+```bash
+python3 /absolute/path/to/codex-autoresearch/scripts/autoresearch_hooks_ctl.py status
+```
+
+What they do:
+
+- `SessionStart` reinjects the short runtime checklist when a future session starts or resumes.
+- `Stop` lets Codex continue only when the autoresearch run still looks active/resumable.
+
+Important:
+
+- Hooks are optional. The skill still works without them.
+- Hooks affect **future sessions only**.
+- The currently open foreground session will not hot-reload them. If you want hooks for `foreground`, install them first, then open a new Codex session (for example via `codex resume`) and continue the run there.
+- New background nested `codex exec` sessions launched after installation will pick them up automatically, so installing them before a `background` launch helps that run immediately.
+
 ## Updating
 
 If installed by copy: re-clone and replace the installed folder.

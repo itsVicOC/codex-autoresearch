@@ -77,6 +77,25 @@ Once execution begins, keep the runtime contract tiny:
 - record every completed experiment before the next one starts
 - use helper scripts for authoritative log/state updates
 
+### Optional long-running hooks
+
+If you expect a `foreground` or `background` run to stay alive for a long time, you can install the optional user-level Codex hooks:
+
+```bash
+python3 /absolute/path/to/codex-autoresearch/scripts/autoresearch_hooks_ctl.py install
+```
+
+Use them as a continuity enhancer, not as a replacement for the skill:
+
+- `SessionStart` re-anchors future sessions with the short runtime checklist
+- `Stop` only blocks Codex from ending a session when the autoresearch run still appears resumable
+
+These hooks affect **future sessions only**.
+
+- The foreground session already open in front of you will **not** hot-reload them.
+- If you install them before launching `background`, that run's new nested `codex exec` sessions will inherit them immediately.
+- If you want hooks for `foreground`, install them first, then open a **new Codex session** (for example via `codex resume`) and continue the run there.
+
 ---
 
 ## The Iteration Cycle

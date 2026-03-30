@@ -58,7 +58,10 @@ required_scripts=(
   "$ROOT/scripts/autoresearch_health_check.py"
   "$ROOT/scripts/autoresearch_lessons.py"
   "$ROOT/scripts/autoresearch_exec_state.py"
+  "$ROOT/scripts/autoresearch_hook_session_start.py"
+  "$ROOT/scripts/autoresearch_hook_stop.py"
   "$ROOT/scripts/autoresearch_init_run.py"
+  "$ROOT/scripts/autoresearch_hooks_ctl.py"
   "$ROOT/scripts/autoresearch_record_iteration.py"
   "$ROOT/scripts/autoresearch_resume_check.py"
   "$ROOT/scripts/autoresearch_supervisor_status.py"
@@ -110,6 +113,11 @@ fi
 
 if ! grep -rn '\.agents/skills' "$ROOT/README.md" "$ROOT/docs/INSTALL.md" >/dev/null; then
   echo "Install docs must mention .agents/skills" >&2
+  exit 1
+fi
+
+if ! grep -q 'autoresearch_hooks_ctl.py' "$ROOT/README.md" "$ROOT/docs/INSTALL.md" "$ROOT/docs/GUIDE.md" "$ROOT/references/interaction-wizard.md"; then
+  echo "Long-running hook docs are missing autoresearch_hooks_ctl.py guidance" >&2
   exit 1
 fi
 

@@ -88,6 +88,25 @@ Codex: background 実行を開始します -- ベースライン：47。
 
 その他のインストール方法は [INSTALL.md](../INSTALL.md) を参照。完全な操作マニュアルは [GUIDE.md](../GUIDE.md) を参照。
 
+### 長時間実行向けの任意 Hooks
+
+`foreground` または `background` の実行が長時間続く見込みなら、任意のユーザーレベル Codex hooks をインストールできます。
+
+```bash
+python3 .agents/skills/codex-autoresearch/scripts/autoresearch_hooks_ctl.py install
+```
+
+追加されるもの:
+
+- `SessionStart` の再アンカー: 後続の新しいセッションに短い runtime checklist を再注入します
+- `Stop` hook: autoresearch run がまだ再開可能に見える場合にだけ、Codex のセッション終了を止めます
+
+これらの hooks は **今後の新しいセッションにだけ** 影響します。
+
+- すでに開いている foreground セッションには**その場では**反映されません。
+- `background` を起動する前にインストールすれば、その run で新しく起動する入れ子の `codex exec` セッションにはすぐ効きます。
+- `foreground` にも同じ保護を効かせたいなら、先にインストールしてから**新しい Codex セッション**（たとえば `codex resume`）を開き、その新しいセッションで run を続けてください。
+
 ---
 
 ## 何をするのか

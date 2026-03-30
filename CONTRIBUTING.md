@@ -80,6 +80,7 @@ The project has two layers: the **skill layer** (what Codex reads) and the **doc
 | Session resume | `references/session-resume-protocol.md` |
 | Health monitoring | `references/health-check-protocol.md` |
 | Hypothesis reasoning | `references/hypothesis-perspectives.md` |
+| Optional user-level long-running hooks | `scripts/autoresearch_hooks_ctl.py` + `scripts/autoresearch_hook_*.py` |
 
 **Documentation layer -- what humans see:**
 
@@ -89,8 +90,10 @@ The project has two layers: the **skill layer** (what Codex reads) and the **doc
 | Detailed usage instructions | `docs/GUIDE.md` |
 | Copy-paste recipes and worked examples | `docs/EXAMPLES.md` |
 | Installation methods | `docs/INSTALL.md` |
+| Optional hook behavior and operator guidance | `README.md` + `docs/GUIDE.md` + `docs/INSTALL.md` + `docs/i18n/README_*.md` |
 
 When a skill-layer change affects user-visible behavior, update the documentation layer too.
+When a change touches the optional user-level hooks, also update `tests/autoresearch/test_hooks_ctl.py` and rerun the runtime smoke coverage.
 
 ## Adding a new mode
 
