@@ -101,11 +101,13 @@ Ils ajoutent :
 - un re-ancrage `SessionStart` qui reinjecte la courte checklist runtime dans les futures nouvelles sessions
 - un hook `Stop` qui ne bloque la fin de session Codex que lorsque l'execution autoresearch semble encore reprenable
 
-Ces hooks ne s'appliquent **qu'aux sessions futures**.
+Ces hooks ne s'appliquent **qu'aux sessions futures** et ne s'attachent qu'aux sessions qui ressemblent clairement a du travail `codex-autoresearch`. Les conversations Codex ordinaires dans le meme depot restent tranquilles.
 
 - La session foreground deja ouverte **ne** les rechargera **pas** a chaud.
 - Si vous les installez avant de lancer `background`, les nouvelles sessions imbriquees `codex exec` de cette execution les prendront en compte immediatement.
+- Les executions gerees en `background` transmettent explicitement leurs chemins d'artifacts configures a ces sessions imbriquees, donc les layouts personnalises avec `--results-path` / `--state-path` continuent d'y fonctionner.
 - Si vous voulez la meme protection pour `foreground`, installez-les d'abord, puis ouvrez une **nouvelle session Codex** (par exemple via `codex resume`) et poursuivez l'execution depuis cette nouvelle session.
+- Les hooks `foreground` sont les plus fiables avec le layout interactif par defaut des artifacts ; des overrides ad-hoc de chemins en foreground peuvent encore finir en no-op.
 
 ---
 

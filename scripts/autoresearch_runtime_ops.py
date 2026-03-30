@@ -49,6 +49,11 @@ from autoresearch_runtime_common import (
 
 STOP_POLL_INTERVAL_SECONDS = 0.1
 STOP_KILL_WAIT_SECONDS = 1.0
+HOOK_ACTIVE_ENV = "AUTORESEARCH_HOOK_ACTIVE"
+HOOK_RESULTS_PATH_ENV = "AUTORESEARCH_HOOK_RESULTS_PATH"
+HOOK_STATE_PATH_ENV = "AUTORESEARCH_HOOK_STATE_PATH"
+HOOK_LAUNCH_PATH_ENV = "AUTORESEARCH_HOOK_LAUNCH_PATH"
+HOOK_RUNTIME_PATH_ENV = "AUTORESEARCH_HOOK_RUNTIME_PATH"
 
 
 def build_codex_exec_command(
@@ -584,11 +589,18 @@ def run_runtime(args: argparse.Namespace) -> int:
             repo=repo,
         )
         try:
+            codex_env = dict(os.environ)
+            codex_env[HOOK_ACTIVE_ENV] = "1"
+            codex_env[HOOK_RESULTS_PATH_ENV] = str(results_path)
+            codex_env[HOOK_STATE_PATH_ENV] = str(state_path)
+            codex_env[HOOK_LAUNCH_PATH_ENV] = str(launch_path)
+            codex_env[HOOK_RUNTIME_PATH_ENV] = str(runtime_path)
             codex_exit = subprocess.run(
                 codex_cmd,
                 cwd=repo,
                 input=prompt_text,
                 text=True,
+                env=codex_env,
             ).returncode
         except OSError as exc:
             return mark_runtime_needs_human(

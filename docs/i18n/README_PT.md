@@ -101,11 +101,13 @@ Eles adicionam:
 - um re-anchor de `SessionStart` que reinsere a checklist curta de runtime em novas sessoes futuras
 - um hook `Stop` que so impede o Codex de encerrar a sessao quando o run de autoresearch ainda parece retomavel
 
-Esses hooks afetam **apenas sessoes futuras**.
+Esses hooks afetam **apenas sessoes futuras** e so se anexam a sessoes que claramente parecam trabalho de `codex-autoresearch`. Conversas normais do Codex no mesmo repo ficam intactas.
 
 - A sessao foreground que ja esta aberta **nao** vai recarrega-los a quente.
 - Se voce os instalar antes de iniciar `background`, as novas sessoes aninhadas `codex exec` desse run vao usa-los imediatamente.
+- Os runs gerenciados em `background` passam explicitamente seus caminhos configurados de artifacts para essas sessoes aninhadas, entao layouts personalizados com `--results-path` / `--state-path` continuam funcionando ali.
 - Se quiser a mesma protecao para `foreground`, instale primeiro, depois abra uma **nova sessao do Codex** (por exemplo com `codex resume`) e continue o run nela.
+- Os hooks de `foreground` sao mais confiaveis com o layout interativo padrao de artifacts; overrides ad-hoc de caminho em foreground ainda podem acabar em no-op.
 
 ---
 

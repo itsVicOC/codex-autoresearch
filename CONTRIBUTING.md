@@ -159,6 +159,8 @@ Use this gate table:
 
 The `interactive-smoke` harness prints the exact manual verification steps. Keep it manual for conversational behavior that the automated gate cannot prove. The detached runtime handoff itself is now covered automatically by `runtime-smoke`.
 
+Changes to the optional long-running hooks surface (`autoresearch_hooks_ctl.py`, `autoresearch_hook_*.py`, related README/GUIDE/INSTALL text) count as skill-level changes. At minimum, cover both sides of the boundary: hooks must stay inert for unrelated Codex conversations in the same repo, and they must still engage for opted-in autoresearch sessions.
+
 ## Validating your changes
 
 ```bash

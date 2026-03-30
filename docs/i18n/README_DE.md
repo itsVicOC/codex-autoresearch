@@ -99,11 +99,13 @@ Sie ergaenzen:
 - einen `SessionStart`-Re-Anchor, der die kurze Runtime-Checkliste in spaetere neue Sitzungen erneut einbringt
 - einen `Stop`-Hook, der Codex nur dann am Beenden hindert, wenn der autoresearch-Lauf weiterhin wiederaufnehmbar aussieht
 
-Diese Hooks wirken **nur auf zukuenftige Sitzungen**.
+Diese Hooks wirken **nur auf zukuenftige Sitzungen** und haengen sich nur an Sitzungen, die klar wie `codex-autoresearch`-Arbeit aussehen. Unabhaengige Codex-Konversationen im selben Repo bleiben unberuehrt.
 
 - Die bereits geoeffnete Foreground-Sitzung wird sie **nicht** per Hot-Reload uebernehmen.
 - Wenn Sie sie vor dem Start von `background` installieren, uebernehmen die neuen verschachtelten `codex exec`-Sitzungen dieses Laufs sie sofort.
+- Verwaltete `background`-Laeufe reichen ihre konfigurierten Artifact-Pfade explizit an diese verschachtelten Sitzungen weiter, daher funktionieren benutzerdefinierte `--results-path`- / `--state-path`-Layouts dort weiterhin.
 - Wenn Sie den gleichen Schutz fuer `foreground` wollen, installieren Sie zuerst, oeffnen Sie dann eine **neue Codex-Sitzung** (zum Beispiel via `codex resume`) und setzen Sie den Lauf dort fort.
+- `foreground`-Hooks sind am verlaesslichsten mit dem normalen interaktiven Artifact-Layout; ad-hoc Pfad-Overrides im Foreground koennen weiterhin als no-op enden.
 
 ---
 

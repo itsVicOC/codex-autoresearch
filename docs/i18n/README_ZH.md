@@ -99,11 +99,13 @@ python3 .agents/skills/codex-autoresearch/scripts/autoresearch_hooks_ctl.py inst
 - `SessionStart` 重新锚定：把短运行清单重新注入到后续新会话中
 - `Stop` hook：只有在 autoresearch run 仍然看起来可恢复时，才阻止 Codex 结束当前会话
 
-这些 hooks **只影响后续新会话**。
+这些 hooks **只影响后续新会话**，而且只会附着到明确看起来像 `codex-autoresearch` 工作的会话上。同一仓库里的无关 Codex 对话不会被它们误伤。
 
 - 当前已经打开的前台会话**不会**热加载这些 hooks。
 - 如果你在启动 `background` 之前安装，这次 run 新启动的后台嵌套 `codex exec` 会话会立刻吃到它们。
+- 托管 `background` run 会把自己配置过的 artifact 路径显式传给这些嵌套会话，所以自定义 `--results-path` / `--state-path` 在后台模式下仍然有效。
 - 如果你希望 `foreground` 也受益，先安装，再开启一个**新的 Codex 会话**（例如使用 `codex resume`），然后在那个新会话里继续这个 run。
+- `foreground` hooks 最适合默认的交互式 artifact 布局；如果你在前台会话里临时用了自定义路径覆盖，它们仍然可能选择 no-op。
 
 ---
 

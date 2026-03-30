@@ -101,11 +101,13 @@ python3 .agents/skills/codex-autoresearch/scripts/autoresearch_hooks_ctl.py inst
 - `SessionStart` の再アンカー: 後続の新しいセッションに短い runtime checklist を再注入します
 - `Stop` hook: autoresearch run がまだ再開可能に見える場合にだけ、Codex のセッション終了を止めます
 
-これらの hooks は **今後の新しいセッションにだけ** 影響します。
+これらの hooks は **今後の新しいセッションにだけ** 影響し、しかも明らかに `codex-autoresearch` の作業だと分かるセッションにだけ付与されます。同じ repo にいる通常の Codex 会話は巻き込みません。
 
 - すでに開いている foreground セッションには**その場では**反映されません。
 - `background` を起動する前にインストールすれば、その run で新しく起動する入れ子の `codex exec` セッションにはすぐ効きます。
+- 管理された `background` run は設定済みの artifact path をその入れ子セッションへ明示的に渡すので、カスタム `--results-path` / `--state-path` でもそのまま機能します。
 - `foreground` にも同じ保護を効かせたいなら、先にインストールしてから**新しい Codex セッション**（たとえば `codex resume`）を開き、その新しいセッションで run を続けてください。
+- `foreground` hooks はデフォルトの対話型 artifact layout で最も安定します。foreground で一時的にカスタム path override を使うと、まだ no-op になることがあります。
 
 ---
 

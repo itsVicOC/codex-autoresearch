@@ -20,6 +20,7 @@ FEATURE_KEY = "codex_hooks"
 MANAGED_DIR_NAME = "autoresearch-hooks"
 SESSION_SCRIPT_NAME = "session_start.py"
 STOP_SCRIPT_NAME = "stop.py"
+COMMON_SCRIPT_NAME = "autoresearch_hook_common.py"
 MANIFEST_FILE_NAME = "manifest.json"
 SESSION_STATUS_MESSAGE = "codex-autoresearch SessionStart hook"
 STOP_STATUS_MESSAGE = "codex-autoresearch Stop hook"
@@ -47,6 +48,10 @@ def manifest_path() -> Path:
     return hooks_home() / MANIFEST_FILE_NAME
 
 
+def common_script_path() -> Path:
+    return hooks_home() / COMMON_SCRIPT_NAME
+
+
 def session_script_path() -> Path:
     return hooks_home() / SESSION_SCRIPT_NAME
 
@@ -63,6 +68,10 @@ def source_stop_script() -> Path:
     return Path(__file__).resolve().with_name("autoresearch_hook_stop.py")
 
 
+def source_common_script() -> Path:
+    return Path(__file__).resolve().with_name("autoresearch_hook_common.py")
+
+
 def current_skill_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
@@ -72,9 +81,14 @@ def build_parser() -> argparse.ArgumentParser:
         description="Install, inspect, or remove the optional user-level Codex hooks used by codex-autoresearch."
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser("status", help="Inspect the current hook installation.")
-    subparsers.add_parser("install", help="Install or update the managed user-level hooks.")
-    subparsers.add_parser("uninstall", help="Remove the managed user-level hooks.")
+    status = subparsers.add_parser("status", help="Inspect the current hook installation.")
+    install = subparsers.add_parser("install", help="Install or update the managed user-level hooks.")
+    uninstall = subparsers.add_parser("uninstall", help="Remove the managed user-level hooks.")
+    for subparser in (status, install, uninstall):
+        subparser.add_argument(
+            "--repo",
+            help="Compatibility no-op. Hooks are installed per user CODEX_HOME, not per repo.",
+        )
     return parser
 
 
@@ -244,6 +258,7 @@ def write_manifest(*, feature_enabled_by_installer: bool) -> None:
         "skill_root_fallback": str(current_skill_root()),
         "feature_enabled_by_installer": feature_enabled_by_installer,
         "managed_scripts": {
+            "common": str(common_script_path()),
             "session_start": str(session_script_path()),
             "stop": str(stop_script_path()),
         },
@@ -264,8 +279,10 @@ def read_manifest() -> dict[str, Any]:
 
 def install_managed_scripts() -> None:
     hooks_home().mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_common_script(), common_script_path())
     shutil.copy2(source_session_script(), session_script_path())
     shutil.copy2(source_stop_script(), stop_script_path())
+    common_script_path().chmod(0o755)
     session_script_path().chmod(0o755)
     stop_script_path().chmod(0o755)
 
@@ -294,7 +311,11 @@ def status() -> dict[str, Any]:
         "feature_enabled_by_installer": bool(manifest.get("feature_enabled_by_installer")),
         "managed_session_start_installed": managed_session and session_script_path().exists(),
         "managed_stop_installed": managed_stop and stop_script_path().exists(),
-        "managed_scripts_present": session_script_path().exists() and stop_script_path().exists(),
+        "managed_scripts_present": (
+            common_script_path().exists()
+            and session_script_path().exists()
+            and stop_script_path().exists()
+        ),
         "manifest_present": manifest_path().exists(),
         "skill_root_fallback": manifest.get("skill_root_fallback") or str(current_skill_root()),
         "other_hook_groups_present": count_all_hook_groups(hooks_payload) - int(managed_session) - int(managed_stop),
@@ -302,6 +323,7 @@ def status() -> dict[str, Any]:
             parse_feature_value(config_text) is True
             and managed_session
             and managed_stop
+            and common_script_path().exists()
             and session_script_path().exists()
             and stop_script_path().exists()
         ),
@@ -418,7 +440,7 @@ def uninstall() -> dict[str, Any]:
         )
         config_backup = write_text_with_backup(config_path(), updated_config)
 
-    for script_path in (session_script_path(), stop_script_path(), manifest_path()):
+    for script_path in (common_script_path(), session_script_path(), stop_script_path(), manifest_path()):
         if script_path.exists():
             script_path.unlink()
     if hooks_home().exists():
