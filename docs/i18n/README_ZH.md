@@ -105,7 +105,7 @@ python3 .agents/skills/codex-autoresearch/scripts/autoresearch_hooks_ctl.py inst
 - 如果你在启动 `background` 之前安装，这次 run 新启动的后台嵌套 `codex exec` 会话会立刻吃到它们。
 - 托管 `background` run 会把自己配置过的 artifact 路径显式传给这些嵌套会话，所以自定义 `--results-path` / `--state-path` 在后台模式下仍然有效。
 - 如果你希望 `foreground` 也受益，先安装，再开启一个**新的 Codex 会话**（例如使用 `codex resume`），然后在那个新会话里继续这个 run。
-- `foreground` hooks 最适合默认的交互式 artifact 布局；如果你在前台会话里临时用了自定义路径覆盖，它们仍然可能选择 no-op。
+- 后续 `foreground` 新会话也可以通过仓库里的 hook context pointer 找回 repo 内的自定义 artifact 路径，但 hooks 仍然只会在会话明确看起来像 autoresearch 时才附着。
 
 ---
 
@@ -528,12 +528,12 @@ iteration  commit   metric  delta   status    description
 对人类用户来说，现在只保留一个主要入口：**`$codex-autoresearch`**。
 
 - 首次交互运行：自然描述目标，回答确认问题，明确选择 `foreground` 或 `background`，然后回复 `go`
-- 如果选择 `foreground`，Codex 会留在当前会话里持续迭代，只写 `research-results.tsv`、`autoresearch-state.json` 和 lessons，不会创建 launch/runtime 控制文件
+- 如果选择 `foreground`，Codex 会留在当前会话里持续迭代，写入 `research-results.tsv`、`autoresearch-state.json`、repo 本地的 `autoresearch-hook-context.json` 和 lessons，不会创建 launch/runtime 控制文件
 - 如果选择 `background`，Codex 会写入 `autoresearch-launch.json` 并启动分离的运行控制器
 - `foreground` 和 `background` 共享同一套 loop 协议、指标语义以及 repo/scope 规则，但对同一个 repo/run 来说它们是互斥的；不要同时让两种模式写同一套主仓工件
 - 如果之后想把同一个交互 run 切到另一种模式，仍然通过同一个 `$codex-autoresearch` 入口继续；继续之前，skill 会在内部先把共享 state 同步到目标模式，background `start` 也会自动完成同样的同步
 - 单仓运行仍然是默认形态；此时声明的 scope 只作用于承载 run-control 工件的主仓库
-- 如果实验跨多个仓库，确认后的 launch manifest 也可以声明 companion repos，并为每个仓库单独给出 scope。runtime preflight 会检查所有托管仓库，但 `research-results.tsv`、`autoresearch-state.json` 以及 runtime-control 工件仍然锚定在主仓库
+- 如果实验跨多个仓库，确认后的 launch manifest 也可以声明 companion repos，并为每个仓库单独给出 scope。runtime preflight 会检查所有托管仓库，但 `research-results.tsv`、`autoresearch-state.json`、`autoresearch-hook-context.json` 以及 runtime-control 工件仍然锚定在主仓库
 - 在这种模型下，TSV 的 `commit` 列仍然只记录主仓库提交；companion repo 的逐仓 commit provenance 则记录在 `autoresearch-state.json` 中
 - 之后每个 background 托管循环都会启动一个非交互式 `codex exec` 会话，并通过 stdin 传入 runtime prompt
 - `execution_policy` 只作用于会再拉起嵌套 Codex 会话的路径，也就是 background 托管循环和 `exec`；当前 skill 默认是 `danger_full_access`

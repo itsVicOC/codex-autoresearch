@@ -22,6 +22,9 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
     def installed_hook_path(self, home: Path, name: str) -> Path:
         return home / ".codex" / "autoresearch-hooks" / name
 
+    def repo_hook_context_path(self, repo: Path) -> Path:
+        return repo / "autoresearch-hook-context.json"
+
     def run_installed_hook(
         self,
         hook_path: Path,
@@ -167,6 +170,7 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             config_text = (home / ".codex" / "config.toml").read_text(encoding="utf-8")
             self.assertIn("codex_hooks = false", config_text)
             self.assertFalse(self.installed_hook_path(home, "autoresearch_hook_common.py").exists())
+            self.assertFalse(self.installed_hook_path(home, "autoresearch_hook_context.py").exists())
             self.assertFalse(self.installed_hook_path(home, "session_start.py").exists())
             self.assertFalse(self.installed_hook_path(home, "stop.py").exists())
 
@@ -253,6 +257,160 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             payload = json.loads(completed.stdout)
             context = payload["hookSpecificOutput"]["additionalContext"]
             self.assertIn("baseline first", context.lower())
+
+    def test_foreground_pointer_file_restores_custom_paths_for_future_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            env = self.hook_env(home)
+            self.run_script("autoresearch_hooks_ctl.py", "install", env=env)
+            hook_path = self.installed_hook_path(home, "session_start.py")
+
+            repo = root / "foreground-repo"
+            repo.mkdir()
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            artifacts = repo / "artifacts"
+            artifacts.mkdir(parents=True)
+            custom_results = artifacts / "custom-results.tsv"
+            custom_state = artifacts / "custom-state.json"
+
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(custom_results),
+                "--state-path",
+                str(custom_state),
+                "--mode",
+                "loop",
+                "--session-mode",
+                "foreground",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "pytest -q",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "base111",
+                "--baseline-description",
+                "baseline failures",
+                env=env,
+            )
+
+            pointer_payload = json.loads(
+                self.repo_hook_context_path(repo).read_text(encoding="utf-8")
+            )
+            self.assertEqual(pointer_payload["version"], 1)
+            self.assertTrue(pointer_payload["active"])
+            self.assertEqual(pointer_payload["session_mode"], "foreground")
+            self.assertEqual(pointer_payload["results_path"], "artifacts/custom-results.tsv")
+            self.assertEqual(pointer_payload["state_path"], "artifacts/custom-state.json")
+            self.assertIsNone(pointer_payload["launch_path"])
+            self.assertIsNone(pointer_payload["runtime_path"])
+
+            transcript_path = root / "foreground-rollout.jsonl"
+            self.write_transcript_marker(transcript_path)
+            completed = self.run_installed_hook(
+                hook_path,
+                cwd=repo,
+                payload={
+                    "cwd": str(repo),
+                    "source": "resume",
+                    "transcript_path": str(transcript_path),
+                },
+                env=env,
+            )
+            completed.check_returncode()
+            payload = json.loads(completed.stdout)
+            context = payload["hookSpecificOutput"]["additionalContext"]
+            self.assertIn("Record every completed experiment before starting the next one.", context)
+
+    def test_foreground_terminal_stop_marks_pointer_inactive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            env = self.hook_env(home)
+            self.run_script("autoresearch_hooks_ctl.py", "install", env=env)
+            stop_hook = self.installed_hook_path(home, "stop.py")
+            session_hook = self.installed_hook_path(home, "session_start.py")
+
+            repo = root / "terminal-foreground"
+            repo.mkdir()
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            artifacts = repo / "artifacts"
+            artifacts.mkdir(parents=True)
+            custom_results = artifacts / "custom-results.tsv"
+            custom_state = artifacts / "custom-state.json"
+
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--results-path",
+                str(custom_results),
+                "--state-path",
+                str(custom_state),
+                "--mode",
+                "loop",
+                "--session-mode",
+                "foreground",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "pytest -q",
+                "--stop-condition",
+                "stop when metric reaches 0",
+                "--baseline-metric",
+                "0",
+                "--baseline-commit",
+                "base000",
+                "--baseline-description",
+                "baseline failures",
+                env=env,
+            )
+
+            transcript_path = root / "foreground-terminal.jsonl"
+            self.write_transcript_marker(transcript_path)
+            completed = self.run_installed_hook(
+                stop_hook,
+                cwd=repo,
+                payload={
+                    "cwd": str(repo),
+                    "stop_hook_active": False,
+                    "transcript_path": str(transcript_path),
+                },
+                env=env,
+            )
+            completed.check_returncode()
+            self.assertEqual(completed.stdout, "")
+
+            pointer_payload = json.loads(
+                self.repo_hook_context_path(repo).read_text(encoding="utf-8")
+            )
+            self.assertFalse(pointer_payload["active"])
+
+            completed = self.run_installed_hook(
+                session_hook,
+                cwd=repo,
+                payload={
+                    "cwd": str(repo),
+                    "source": "resume",
+                    "transcript_path": str(transcript_path),
+                },
+                env=env,
+            )
+            completed.check_returncode()
+            self.assertEqual(completed.stdout, "")
 
     def test_stop_hook_only_blocks_for_autoresearch_sessions_and_uses_followup_prompt_when_active(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

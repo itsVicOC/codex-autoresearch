@@ -155,7 +155,7 @@ If the chosen path is **Fresh start** after recovery analysis, the handoff shoul
 python3 <skill-root>/scripts/autoresearch_runtime_ctl.py launch --fresh-start ...
 ```
 
-This archives prior persistent run-control artifacts to `.prev` before the new background run begins, including `research-results.tsv`, `autoresearch-state.json`, `autoresearch-launch.json`, `autoresearch-runtime.json`, and `autoresearch-runtime.log`.
+This archives prior persistent run-control artifacts to `.prev` before the new background run begins, including `research-results.tsv`, `autoresearch-state.json`, `autoresearch-hook-context.json`, `autoresearch-launch.json`, `autoresearch-runtime.json`, and `autoresearch-runtime.log`.
 
 ## Question Reference
 

@@ -178,7 +178,7 @@ When JSON is missing or unusable but the helper reports `tsv_fallback`:
 When the helper reports `fresh_start`:
 
 1. Proceed with the normal wizard flow.
-2. Rename prior persistent run-control artifacts to `.prev` variants if they exist. In the managed-runtime path, this archival is performed by `autoresearch_runtime_ctl.py launch --fresh-start ...`. This includes `research-results.tsv`, `autoresearch-state.json`, `autoresearch-launch.json`, `autoresearch-runtime.json`, and `autoresearch-runtime.log`.
+2. Rename prior persistent run-control artifacts to `.prev` variants if they exist. In the managed-runtime path, this archival is performed by `autoresearch_runtime_ctl.py launch --fresh-start ...`. This includes `research-results.tsv`, `autoresearch-state.json`, `autoresearch-hook-context.json`, `autoresearch-launch.json`, `autoresearch-runtime.json`, and `autoresearch-runtime.log`.
 3. Keep `autoresearch-lessons.md` unless it is clearly corrupt.
 
 ## Edge Cases

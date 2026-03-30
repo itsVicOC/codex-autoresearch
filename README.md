@@ -112,7 +112,7 @@ These hooks affect **future sessions only**, and they only attach to sessions th
 - If you install them before launching `background`, that run's new nested `codex exec` sessions will pick them up immediately.
 - Managed `background` runs explicitly pass their configured artifact paths into those nested sessions, so custom `--results-path` / `--state-path` layouts continue to work there.
 - If you want the same protection for `foreground`, install them first, then start a **new Codex session** (for example via `codex resume`) and continue the run there.
-- `foreground` hooks are strongest when the resumed session is continuing the normal interactive artifact layout; ad-hoc foreground path overrides may still no-op.
+- Future `foreground` sessions can also recover repo-local custom artifact paths through the repo's hook context pointer, but hooks still require an explicit autoresearch session signal before they attach.
 
 ---
 
@@ -513,6 +513,7 @@ Every iteration is recorded in complementary artifacts:
 
 - **`research-results.tsv`** -- full audit trail, with one main row per iteration plus optional parallel worker rows
 - **`autoresearch-state.json`** -- compact state snapshot for fast foreground resume and shared retained-state recovery
+- **`autoresearch-hook-context.json`** -- repo-local hook pointer that preserves the latest artifact paths for future foreground/background sessions
 - **`autoresearch-launch.json`** -- confirmed launch manifest for background runs only
 - **`autoresearch-runtime.json`** -- background runtime control state (PID, status, last decision)
 - **`autoresearch-runtime.log`** -- background runtime log for long runs
@@ -545,12 +546,12 @@ When you are scripting or debugging the control plane directly, repo-managed hel
 Human-facing usage now has a single entrypoint: **`$codex-autoresearch`**.
 
 - First interactive run: describe the goal naturally, answer the confirmation questions, choose **foreground** or **background**, then reply `go`.
-- **Foreground** keeps the loop in the current Codex session. It writes `research-results.tsv`, `autoresearch-state.json`, and lessons, but does not create launch/runtime control files.
+- **Foreground** keeps the loop in the current Codex session. It writes `research-results.tsv`, `autoresearch-state.json`, the repo-local `autoresearch-hook-context.json`, and lessons, but does not create launch/runtime control files.
 - **Background** calls `autoresearch_runtime_ctl.py launch`, atomically writes `autoresearch-launch.json`, and starts the detached runtime controller.
 - Foreground and background share the same loop protocol, metric semantics, and repo/scope rules, but they are mutually exclusive for a given repo/run. Do not run both modes at the same time against the same primary repo artifacts.
 - If you resume an existing interactive run in the other mode, keep using the same `$codex-autoresearch` entrypoint. The shared state must be synchronized to the chosen mode before continuing; scripted background `start` does that automatically, and the interactive skill flow should handle the same step for foreground continuation.
 - Single-repo runs remain the default: the declared scope applies to the primary repo that owns the run-control artifacts.
-- For cross-repo experiments, both modes can declare companion repos with their own scopes. `research-results.tsv` and `autoresearch-state.json` remain anchored in the primary repo, and background mode also keeps launch/runtime control files there.
+- For cross-repo experiments, both modes can declare companion repos with their own scopes. `research-results.tsv`, `autoresearch-state.json`, and `autoresearch-hook-context.json` remain anchored in the primary repo, and background mode also keeps launch/runtime control files there.
 - In that model, the TSV `commit` column still tracks the primary repo commit, while `autoresearch-state.json` can carry per-repo commit provenance for companion repos.
 - Script-level entrypoints accept repeated `--companion-repo-scope PATH=SCOPE` flags when you need to seed that structure directly.
 - Each background runtime cycle launches a non-interactive `codex exec` session with the runtime prompt fed on stdin, so it does not depend on the interactive TUI.

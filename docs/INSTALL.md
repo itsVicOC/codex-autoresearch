@@ -95,7 +95,7 @@ Important:
 - The currently open foreground session will not hot-reload them. If you want hooks for `foreground`, install them first, then open a new Codex session (for example via `codex resume`) and continue the run there.
 - New background nested `codex exec` sessions launched after installation will pick them up automatically, so installing them before a `background` launch helps that run immediately.
 - Managed `background` runs explicitly pass their configured artifact paths into those nested sessions, so custom `--results-path` / `--state-path` layouts continue to work there.
-- `foreground` hooks are strongest for the default interactive artifact layout; ad-hoc foreground path overrides may still no-op.
+- Future `foreground` sessions can also recover repo-local custom artifact paths through the repo's hook context pointer, but hooks still require an explicit autoresearch session signal before they attach.
 
 ## Updating
 

@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from autoresearch_hook_context import load_hook_context_pointer
+
 
 MARKER_FILES = (
     "autoresearch-launch.json",
@@ -34,8 +36,8 @@ HOOK_RUNTIME_PATH_ENV = "AUTORESEARCH_HOOK_RUNTIME_PATH"
 class HookArtifactPaths:
     results_path: Path
     state_path: Path | None
-    launch_path: Path
-    runtime_path: Path
+    launch_path: Path | None
+    runtime_path: Path | None
 
 
 @dataclass(frozen=True)
@@ -47,6 +49,7 @@ class HookContext:
     artifacts: HookArtifactPaths
     opt_in_env: bool
     transcript_marked: bool
+    pointer_active: bool | None
 
     @property
     def session_is_autoresearch(self) -> bool:
@@ -54,8 +57,12 @@ class HookContext:
 
     @property
     def has_active_artifacts(self) -> bool:
+        if self.pointer_active is False and not self.opt_in_env:
+            return False
         paths = self.artifacts
-        if paths.launch_path.exists() or paths.runtime_path.exists():
+        if paths.launch_path is not None and paths.launch_path.exists():
+            return True
+        if paths.runtime_path is not None and paths.runtime_path.exists():
             return True
         if paths.state_path is not None and paths.state_path.exists():
             return True
@@ -167,13 +174,49 @@ def env_truthy(name: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 
-def resolve_artifact_paths(repo: Path) -> HookArtifactPaths:
+def _coalesce_path(
+    *,
+    repo: Path,
+    env_name: str,
+    pointer_path: Path | None,
+    default_name: str,
+) -> Path:
+    raw = os.environ.get(env_name)
+    if raw:
+        return resolve_repo_relative(repo, raw, default_name)
+    if pointer_path is not None:
+        return pointer_path
+    return resolve_repo_relative(repo, None, default_name)
+
+
+def resolve_artifact_paths(repo: Path) -> tuple[HookArtifactPaths, bool | None]:
+    pointer = load_hook_context_pointer(repo)
     return HookArtifactPaths(
-        results_path=resolve_repo_relative(repo, os.environ.get(HOOK_RESULTS_PATH_ENV), "research-results.tsv"),
-        state_path=resolve_repo_relative(repo, os.environ.get(HOOK_STATE_PATH_ENV), "autoresearch-state.json"),
-        launch_path=resolve_repo_relative(repo, os.environ.get(HOOK_LAUNCH_PATH_ENV), "autoresearch-launch.json"),
-        runtime_path=resolve_repo_relative(repo, os.environ.get(HOOK_RUNTIME_PATH_ENV), "autoresearch-runtime.json"),
-    )
+        results_path=_coalesce_path(
+            repo=repo,
+            env_name=HOOK_RESULTS_PATH_ENV,
+            pointer_path=pointer.results_path if pointer is not None else None,
+            default_name="research-results.tsv",
+        ),
+        state_path=_coalesce_path(
+            repo=repo,
+            env_name=HOOK_STATE_PATH_ENV,
+            pointer_path=pointer.state_path if pointer is not None else None,
+            default_name="autoresearch-state.json",
+        ),
+        launch_path=_coalesce_path(
+            repo=repo,
+            env_name=HOOK_LAUNCH_PATH_ENV,
+            pointer_path=pointer.launch_path if pointer is not None else None,
+            default_name="autoresearch-launch.json",
+        ),
+        runtime_path=_coalesce_path(
+            repo=repo,
+            env_name=HOOK_RUNTIME_PATH_ENV,
+            pointer_path=pointer.runtime_path if pointer is not None else None,
+            default_name="autoresearch-runtime.json",
+        ),
+    ), (pointer.active if pointer is not None else None)
 
 
 def payload_transcript_path(payload: dict[str, object]) -> Path | None:
@@ -246,13 +289,15 @@ def build_context(script_path: str | Path) -> HookContext | None:
     manifest = load_manifest(script_path)
     repo = resolve_repo(cwd)
     transcript_path = payload_transcript_path(payload)
+    artifacts, pointer_active = resolve_artifact_paths(repo)
 
     return HookContext(
         payload=payload,
         cwd=cwd,
         repo=repo,
         skill_root=resolve_skill_root(cwd, manifest),
-        artifacts=resolve_artifact_paths(repo),
+        artifacts=artifacts,
         opt_in_env=env_truthy(HOOK_ACTIVE_ENV),
         transcript_marked=transcript_indicates_autoresearch_session(transcript_path),
+        pointer_active=pointer_active,
     )

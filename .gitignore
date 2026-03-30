@@ -5,6 +5,10 @@ autoresearch-state.json
 autoresearch-state.prev.json
 autoresearch-state.json.bak
 autoresearch-state.json.tmp
+autoresearch-hook-context.json
+autoresearch-hook-context.prev.json
+autoresearch-hook-context.json.bak
+autoresearch-hook-context.json.tmp
 research-results.tsv.tmp
 results.tsv
 run.log

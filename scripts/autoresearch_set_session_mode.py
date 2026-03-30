@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from autoresearch_core import SESSION_MODE_CHOICES
+from autoresearch_hook_context import update_hook_context_pointer
 from autoresearch_helpers import (
     AutoresearchError,
     default_runtime_state_path,
@@ -91,6 +92,14 @@ def main() -> int:
         state_path,
         session_mode=args.session_mode,
         execution_policy=args.execution_policy if args.session_mode == "background" else None,
+    )
+    update_hook_context_pointer(
+        repo=repo,
+        active=True,
+        session_mode=args.session_mode,
+        results_path=results_path.resolve(),
+        state_path=state_path.resolve(),
+        runtime_path=runtime_path.resolve(),
     )
 
     print(

@@ -5,6 +5,7 @@ import json
 import subprocess
 import sys
 
+from autoresearch_hook_context import update_hook_context_pointer
 from autoresearch_hook_common import build_context
 
 
@@ -77,6 +78,16 @@ def main() -> int:
     if decision in NONTERMINAL_DECISIONS:
         active = bool(context.payload.get("stop_hook_active"))
         emit_block(FOLLOWUP_CONTINUATION_PROMPT if active else CONTINUATION_PROMPT)
+    else:
+        update_hook_context_pointer(
+            repo=context.repo,
+            active=False,
+            session_mode="background" if context.opt_in_env else "foreground",
+            results_path=context.artifacts.results_path,
+            state_path=context.artifacts.state_path,
+            launch_path=context.artifacts.launch_path,
+            runtime_path=context.artifacts.runtime_path,
+        )
     return 0
 
 

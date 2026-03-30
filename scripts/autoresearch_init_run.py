@@ -26,6 +26,7 @@ from autoresearch_helpers import (
     write_results_log,
 )
 from autoresearch_core import SESSION_MODE_CHOICES
+from autoresearch_hook_context import write_hook_context_pointer
 from autoresearch_preflight import evaluate_managed_repos_preflight
 from autoresearch_runtime_common import DEFAULT_EXECUTION_POLICY, EXECUTION_POLICY_CHOICES
 
@@ -261,6 +262,16 @@ def main() -> int:
         summary=summary,
     )
     write_json_atomic(state_path, payload)
+    if args.mode != "exec":
+        write_hook_context_pointer(
+            repo=repo,
+            active=True,
+            session_mode=session_mode,
+            results_path=results_path.resolve(),
+            state_path=state_path.resolve(),
+            launch_path=None,
+            runtime_path=None,
+        )
 
     print(
         json.dumps(

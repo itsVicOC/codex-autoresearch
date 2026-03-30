@@ -26,6 +26,7 @@ LAUNCH_MANIFEST_NAME = "autoresearch-launch.json"
 RUNTIME_STATE_NAME = "autoresearch-runtime.json"
 RUNTIME_LOG_NAME = "autoresearch-runtime.log"
 LESSONS_FILE_NAME = "autoresearch-lessons.md"
+HOOK_CONTEXT_NAME = "autoresearch-hook-context.json"
 AUTORESEARCH_OWNED_BASENAMES = {
     "research-results.tsv",
     "autoresearch-state.json",
@@ -33,6 +34,7 @@ AUTORESEARCH_OWNED_BASENAMES = {
     "autoresearch-runtime.json",
     "autoresearch-runtime.log",
     "autoresearch-lessons.md",
+    "autoresearch-hook-context.json",
 }
 
 MAIN_LABEL_RE = re.compile(r"^(0|[1-9]\d*)$")

@@ -21,6 +21,7 @@ MANAGED_DIR_NAME = "autoresearch-hooks"
 SESSION_SCRIPT_NAME = "session_start.py"
 STOP_SCRIPT_NAME = "stop.py"
 COMMON_SCRIPT_NAME = "autoresearch_hook_common.py"
+CONTEXT_SCRIPT_NAME = "autoresearch_hook_context.py"
 MANIFEST_FILE_NAME = "manifest.json"
 SESSION_STATUS_MESSAGE = "codex-autoresearch SessionStart hook"
 STOP_STATUS_MESSAGE = "codex-autoresearch Stop hook"
@@ -52,6 +53,10 @@ def common_script_path() -> Path:
     return hooks_home() / COMMON_SCRIPT_NAME
 
 
+def context_script_path() -> Path:
+    return hooks_home() / CONTEXT_SCRIPT_NAME
+
+
 def session_script_path() -> Path:
     return hooks_home() / SESSION_SCRIPT_NAME
 
@@ -70,6 +75,10 @@ def source_stop_script() -> Path:
 
 def source_common_script() -> Path:
     return Path(__file__).resolve().with_name("autoresearch_hook_common.py")
+
+
+def source_context_script() -> Path:
+    return Path(__file__).resolve().with_name("autoresearch_hook_context.py")
 
 
 def current_skill_root() -> Path:
@@ -259,6 +268,7 @@ def write_manifest(*, feature_enabled_by_installer: bool) -> None:
         "feature_enabled_by_installer": feature_enabled_by_installer,
         "managed_scripts": {
             "common": str(common_script_path()),
+            "context": str(context_script_path()),
             "session_start": str(session_script_path()),
             "stop": str(stop_script_path()),
         },
@@ -280,9 +290,11 @@ def read_manifest() -> dict[str, Any]:
 def install_managed_scripts() -> None:
     hooks_home().mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_common_script(), common_script_path())
+    shutil.copy2(source_context_script(), context_script_path())
     shutil.copy2(source_session_script(), session_script_path())
     shutil.copy2(source_stop_script(), stop_script_path())
     common_script_path().chmod(0o755)
+    context_script_path().chmod(0o755)
     session_script_path().chmod(0o755)
     stop_script_path().chmod(0o755)
 
@@ -313,6 +325,7 @@ def status() -> dict[str, Any]:
         "managed_stop_installed": managed_stop and stop_script_path().exists(),
         "managed_scripts_present": (
             common_script_path().exists()
+            and context_script_path().exists()
             and session_script_path().exists()
             and stop_script_path().exists()
         ),
@@ -324,6 +337,7 @@ def status() -> dict[str, Any]:
             and managed_session
             and managed_stop
             and common_script_path().exists()
+            and context_script_path().exists()
             and session_script_path().exists()
             and stop_script_path().exists()
         ),
@@ -440,7 +454,13 @@ def uninstall() -> dict[str, Any]:
         )
         config_backup = write_text_with_backup(config_path(), updated_config)
 
-    for script_path in (common_script_path(), session_script_path(), stop_script_path(), manifest_path()):
+    for script_path in (
+        common_script_path(),
+        context_script_path(),
+        session_script_path(),
+        stop_script_path(),
+        manifest_path(),
+    ):
         if script_path.exists():
             script_path.unlink()
     if hooks_home().exists():
