@@ -88,26 +88,27 @@ Las mejoras se acumulan. Los fallos se revierten. Todo queda registrado.
 
 Mas opciones de instalacion en [INSTALL.md](../INSTALL.md). Manual completo en [GUIDE.md](../GUIDE.md).
 
-### Hooks de sesion
+### Hooks de sesion obligatorios
 
-El skill interactivo ahora exige estos session hooks de Codex y los instala automaticamente justo despues del primer escaneo del repo cuando faltan. Si quieres preinstalarlos o inspeccionarlos manualmente:
+El skill interactivo se apoya en dos pequenos session hooks de Codex. Si faltan, el skill los instala automaticamente justo despues del primer escaneo del repo, antes de la primera pregunta de aclaracion. Si quieres preinstalarlos o inspeccionarlos manualmente:
 
 ```bash
 python3 .agents/skills/codex-autoresearch/scripts/autoresearch_hooks_ctl.py install
 ```
 
-Anaden:
+En la practica, hacen que las sesiones posteriores de autoresearch sean mas faciles de continuar:
 
-- un re-anchor de `SessionStart` que vuelve a inyectar la checklist corta de runtime en sesiones nuevas posteriores
-- un hook `Stop` que solo impide que Codex cierre la sesion cuando el run de autoresearch sigue pareciendo reanudable
+- vuelven a mostrar la checklist corta de runtime cuando reabres o reanudas un run
+- pueden evitar que Codex se detenga demasiado pronto cuando un run deberia seguir
 
-Estos hooks solo se adjuntan a sesiones posteriores de Codex que claramente parecen trabajo de `codex-autoresearch`. No cambian retroactivamente la sesion de foreground que ya esta abierta, y las conversaciones normales de Codex en el mismo repo quedan intactas.
+Limites importantes:
 
-- Si el skill acaba de instalar los hooks en la sesion actual, `background` puede usarlos de inmediato.
-- La sesion de `foreground` que ya esta abierta no empezara a usarlos a mitad de la sesion.
-- Los runs gestionados en `background` pasan de forma explicita sus rutas configuradas de artifacts a esas sesiones anidadas, asi que los layouts personalizados con `--results-path` / `--state-path` siguen funcionando alli.
-- La sesion de `foreground` que ya esta abierta no empezara a usarlos a mitad de la sesion. Si quieres hooks tambien ahi, abre una **nueva sesion de Codex** y continua el mismo run reabriendo o reanudando el hilo actual. En la CLI esto suele ser `codex resume`; en la app, vuelve a abrir el mismo hilo en una sesion nueva.
-- Las futuras sesiones de `foreground` tambien pueden recuperar rutas personalizadas de artifacts dentro del repo mediante el hook context pointer del repositorio, pero los hooks siguen adjuntandose solo cuando la sesion claramente parece trabajo de autoresearch.
+- Solo afectan a futuras sesiones de Codex que claramente parecen trabajo de `codex-autoresearch`.
+- No cambian la sesion de `foreground` que ya esta abierta.
+- No interfieren con conversaciones normales de Codex en el mismo repo.
+- Si el skill acaba de instalarlos en la sesion actual, `background` puede usarlos de inmediato.
+- Para usarlos tambien en `foreground`, abre o reanuda el mismo hilo en una **nueva sesion de Codex**. En la CLI esto suele ser `codex resume`; en la app, vuelve a abrir el mismo hilo en una sesion nueva.
+- `background` sigue funcionando con layouts personalizados usando `--results-path` / `--state-path`.
 
 ---
 

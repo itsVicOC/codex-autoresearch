@@ -86,26 +86,27 @@ Jede Verbesserung akkumuliert sich. Jeder Fehlschlag wird zurueckgesetzt. Alles 
 
 Siehe [INSTALL.md](../INSTALL.md) fuer weitere Installationsoptionen. Siehe [GUIDE.md](../GUIDE.md) fuer die vollstaendige Bedienungsanleitung.
 
-### Optionale Hooks fuer lange Laufzeiten
+### Erforderliche Session-Hooks
 
-Das interaktive Skill verlangt diese benutzerweiten Codex-Session-Hooks und installiert sie direkt nach dem ersten Repo-Scan automatisch, wenn sie fehlen. Wenn Sie sie manuell vorab installieren oder pruefen wollen:
+Das interaktive Skill verlaesst sich auf zwei kleine Codex-Session-Hooks. Wenn sie fehlen, installiert das Skill sie direkt nach dem ersten Repo-Scan automatisch, noch vor der ersten Rueckfrage. Wenn Sie sie manuell vorab installieren oder pruefen wollen:
 
 ```bash
 python3 .agents/skills/codex-autoresearch/scripts/autoresearch_hooks_ctl.py install
 ```
 
-Sie ergaenzen:
+In der Praxis helfen sie dabei, spaetere autoresearch-Sitzungen leichter fortzusetzen:
 
-- einen `SessionStart`-Re-Anchor, der die kurze Runtime-Checkliste in spaetere neue Sitzungen erneut einbringt
-- einen `Stop`-Hook, der Codex nur dann am Beenden hindert, wenn der autoresearch-Lauf weiterhin wiederaufnehmbar aussieht
+- Sie zeigen die kurze Runtime-Checkliste erneut an, wenn Sie einen Lauf wieder oeffnen oder fortsetzen.
+- Sie koennen verhindern, dass Codex zu frueh stoppt, wenn ein Lauf eigentlich weitergehen sollte.
 
-Diese Hooks haengen sich nur an spaetere Codex-Sitzungen, die klar wie `codex-autoresearch`-Arbeit aussehen. Sie veraendern die bereits geoeffnete Foreground-Sitzung nicht nachtraeglich, und unabhaengige Codex-Konversationen im selben Repo bleiben unberuehrt.
+Wichtige Grenzen:
 
+- Sie betreffen nur zukuenftige Codex-Sitzungen, die klar wie `codex-autoresearch`-Arbeit aussehen.
+- Sie veraendern die bereits geoeffnete `foreground`-Sitzung nicht nachtraeglich.
+- Sie stoeren keine normalen Codex-Konversationen im selben Repo.
 - Wenn das Skill die Hooks gerade in der aktuellen Sitzung installiert hat, kann `background` sie sofort nutzen.
-- Die bereits offene `foreground`-Sitzung uebernimmt sie nicht mitten in der Sitzung.
-- Verwaltete `background`-Laeufe reichen ihre konfigurierten Artifact-Pfade explizit an diese verschachtelten Sitzungen weiter, daher funktionieren benutzerdefinierte `--results-path`- / `--state-path`-Layouts dort weiterhin.
-- Die bereits offene `foreground`-Sitzung uebernimmt sie nicht mitten in der Sitzung. Wenn Sie Hooks auch dort wollen, oeffnen Sie eine **neue Codex-Sitzung** und setzen Sie denselben Lauf fort, indem Sie den aktuellen Thread wieder oeffnen oder fortsetzen. In der CLI ist das oft `codex resume`; in der App oeffnen Sie denselben Thread in einer neuen Sitzung.
-- Zukuenftige `foreground`-Sitzungen koennen repo-lokale benutzerdefinierte Artifact-Pfade auch ueber den Hook-Context-Pointer des Repos wiederfinden, aber die Hooks haengen sich weiterhin nur an, wenn die Sitzung klar wie autoresearch aussieht.
+- Wenn Sie sie auch im `foreground` verwenden wollen, oeffnen oder setzen Sie denselben Thread in einer **neuen Codex-Sitzung** fort. In der CLI ist das oft `codex resume`; in der App oeffnen Sie denselben Thread in einer neuen Sitzung.
+- Im `background` funktionieren auch benutzerdefinierte `--results-path`- / `--state-path`-Layouts weiter.
 
 ---
 

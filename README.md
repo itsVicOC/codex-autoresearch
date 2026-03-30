@@ -95,24 +95,25 @@ See [INSTALL.md](docs/INSTALL.md) for more install options. See [GUIDE.md](docs/
 
 ### Required Session Hooks
 
-The interactive skill requires these user-level Codex session hooks and auto-installs them right after the initial repo scan when they are missing. This bootstrap happens before the first clarification question. If you want to preinstall or inspect them manually:
+The interactive skill relies on two small Codex session hooks. If they are missing, the skill installs them automatically right after the initial repo scan, before the first clarification question. If you want to preinstall or inspect them manually:
 
 ```bash
 python3 .agents/skills/codex-autoresearch/scripts/autoresearch_hooks_ctl.py install
 ```
 
-They add:
+In practice, they make later autoresearch sessions easier to continue:
 
-- a `SessionStart` re-anchor that reinjects the short runtime checklist, and
-- a `Stop` hook that only blocks Codex from ending a session when the autoresearch run still looks resumable.
+- they re-show the short runtime checklist when you reopen or resume a run
+- they can keep Codex from stopping too early when a run should keep going
 
-These hooks only attach to later Codex sessions that clearly look like `codex-autoresearch` work. They do not retroactively change the foreground session already open in front of you, and unrelated Codex conversations in the same repo are left alone.
+Important boundaries:
 
+- They only affect future Codex sessions that clearly look like `codex-autoresearch` work.
+- They do not change the foreground session that is already open in front of you.
+- They do not interfere with unrelated Codex conversations in the same repo.
 - If the skill just installed them in the current session, `background` can use them immediately.
-- The foreground session already open in front of you will **not** start using them mid-session. To get hooks there, reopen/resume the same thread in a new Codex session.
-- Managed `background` runs explicitly pass their configured artifact paths into those nested sessions, so custom `--results-path` / `--state-path` layouts continue to work there.
-- In the CLI this reopen/resume path is often `codex resume`; in the app, reopen the same thread in a new session.
-- Future `foreground` sessions can also recover repo-local custom artifact paths through the repo's hook context pointer, but hooks still require an explicit autoresearch session signal before they attach.
+- To use them in foreground, reopen or resume the same thread in a new Codex session. In the CLI this is often `codex resume`; in the app, reopen the same thread in a new session.
+- Background mode still works with custom `--results-path` / `--state-path` layouts.
 
 ---
 
@@ -546,20 +547,13 @@ When you are scripting or debugging the control plane directly, repo-managed hel
 Human-facing usage now has a single entrypoint: **`$codex-autoresearch`**.
 
 - First interactive run: describe the goal naturally, answer the confirmation questions, choose **foreground** or **background**, then reply `go`.
-- **Foreground** keeps the loop in the current Codex session. It writes `research-results.tsv`, `autoresearch-state.json`, the repo-local `autoresearch-hook-context.json`, and lessons, but does not create launch/runtime control files.
-- **Background** calls `autoresearch_runtime_ctl.py launch`, atomically writes `autoresearch-launch.json`, and starts the detached runtime controller.
-- Foreground and background share the same loop protocol, metric semantics, and repo/scope rules, but they are mutually exclusive for a given repo/run. Do not run both modes at the same time against the same primary repo artifacts.
-- If you resume an existing interactive run in the other mode, keep using the same `$codex-autoresearch` entrypoint. The shared state must be synchronized to the chosen mode before continuing; scripted background `start` does that automatically, and the interactive skill flow should handle the same step for foreground continuation.
-- Single-repo runs remain the default: the declared scope applies to the primary repo that owns the run-control artifacts.
-- For cross-repo experiments, both modes can declare companion repos with their own scopes. `research-results.tsv`, `autoresearch-state.json`, and `autoresearch-hook-context.json` remain anchored in the primary repo, and background mode also keeps launch/runtime control files there.
-- In that model, the TSV `commit` column still tracks the primary repo commit, while `autoresearch-state.json` can carry per-repo commit provenance for companion repos.
-- Script-level entrypoints accept repeated `--companion-repo-scope PATH=SCOPE` flags when you need to seed that structure directly.
-- Each background runtime cycle launches a non-interactive `codex exec` session with the runtime prompt fed on stdin, so it does not depend on the interactive TUI.
-- `execution_policy` applies only to paths that spawn nested Codex sessions: background managed runs and `exec`. In this skill the default is `danger_full_access`, which means detached Codex sessions run with `--dangerously-bypass-approvals-and-sandbox` unless a caller explicitly opts into the sandboxed `workspace_write` path.
-- If the background runtime cannot launch that `codex exec` session at all, it transitions to `needs_human` instead of silently falling back to an idle state.
-- If an explicit stop request cannot actually terminate the detached runner, the background runtime also transitions to `needs_human` instead of pretending the run is fully stopped.
-- Before the background runtime starts a session or relaunches one, it runs a script-level preflight: `autoresearch_health_check.py` for integrity checks and `autoresearch_commit_gate.py` for scope-aware git safety.
-- `status` and `stop` are background-only controls. Foreground runs stay in the current session and therefore do not use runtime controller artifacts.
+- **Foreground** keeps the loop in the current Codex session.
+- **Background** writes the launch manifest and hands off to the detached runtime controller.
+- Foreground and background share the same loop protocol, but they are mutually exclusive for a given repo/run. Do not run both modes at the same time against the same primary repo artifacts.
+- If you resume an existing interactive run in the other mode, keep using the same `$codex-autoresearch` entrypoint. The shared state is synchronized internally before continuation.
+- Single-repo runs are the default. Multi-repo runs can declare companion repos, while the main run artifacts stay anchored in the primary repo.
+- Background runtime cycles launch non-interactive `codex exec` sessions behind the scenes.
+- `status` and `stop` are background-only controls. Foreground runs stay in the current session.
 - `Mode: exec` remains the advanced / CI path for fully specified non-interactive runs.
 
 
