@@ -453,8 +453,8 @@ Every iteration is recorded in `research-results.tsv`:
 iteration  commit   metric  delta   status    description
 0          a1b2c3d  47      0       baseline  initial any count
 1          b2c3d4e  41      -6      keep      replace any in auth module with strict types
-2          c3d4e5f  49      +8      discard   generic wrapper introduced new anys
-3          c3d4e5f  38      -3      keep      type-narrow API response handlers
+2          -        49      +8      discard   generic wrapper introduced new anys
+3          d4e5f6g  38      -3      keep      type-narrow API response handlers
 ```
 
 Progress summaries print every 5 iterations. Bounded runs print a final baseline-to-best summary.
