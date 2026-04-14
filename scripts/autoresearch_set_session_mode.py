@@ -17,7 +17,7 @@ from autoresearch_helpers import (
     resolve_state_path_for_log,
     sync_state_session_mode,
 )
-from autoresearch_launch_gate import pid_is_alive
+from autoresearch_launch_gate import runtime_process_state
 from autoresearch_runtime_common import (
     DEFAULT_EXECUTION_POLICY,
     EXECUTION_POLICY_CHOICES,
@@ -82,11 +82,15 @@ def main() -> int:
     runtime, runtime_error = load_runtime_with_error(runtime_path)
     if runtime_error is not None:
         raise AutoresearchError(runtime_error)
-    if runtime is not None and pid_is_alive(runtime.get("pid")):
-        raise AutoresearchError(
-            "Cannot switch interactive session mode while a background runtime is still active. "
-            "Stop the detached runtime first."
-        )
+    if runtime is not None:
+        runtime_state = runtime_process_state(runtime)
+        if bool(runtime_state["alive"]) and bool(runtime_state["matches"]):
+            raise AutoresearchError(
+                "Cannot switch interactive session mode while a background runtime is still active. "
+                "Stop the detached runtime first."
+            )
+        if bool(runtime_state["alive"]) and not bool(runtime_state["matches"]):
+            raise AutoresearchError(str(runtime_state["message"]))
 
     updated = sync_state_session_mode(
         state_path,

@@ -134,16 +134,26 @@ def path_is_in_scope(path: str, patterns: list[str]) -> bool:
         return False
 
     normalized = path.replace("\\", "/")
-    stripped_path = normalized.lstrip("./")
+    stripped_path = normalized[2:] if normalized.startswith("./") else normalized
     candidate = PurePosixPath(stripped_path)
     for pattern in patterns:
         pattern = pattern.strip()
         if not pattern:
             continue
 
-        normalized_pattern = pattern.replace("\\", "/").lstrip("./")
+        normalized_pattern = pattern.replace("\\", "/")
+        if normalized_pattern.startswith("./"):
+            normalized_pattern = normalized_pattern[2:]
         is_glob = any(marker in normalized_pattern for marker in "*?[")
         base = normalized_pattern.rstrip("/")
+
+        # Treat directory/** as a recursive prefix, including hidden directories such as .github/.
+        if normalized_pattern.endswith("/**"):
+            recursive_base = normalized_pattern[: -len("/**")].rstrip("/")
+            if recursive_base and (
+                stripped_path == recursive_base or stripped_path.startswith(f"{recursive_base}/")
+            ):
+                return True
 
         if normalized_pattern.endswith("/") or not is_glob:
             if base and (stripped_path == base or stripped_path.startswith(f"{base}/")):

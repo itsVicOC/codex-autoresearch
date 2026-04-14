@@ -29,7 +29,12 @@ from autoresearch_helpers import (
     write_json_atomic,
 )
 from autoresearch_hook_context import update_hook_context_pointer, write_hook_context_pointer
-from autoresearch_launch_gate import evaluate_launch_context, pid_is_alive
+from autoresearch_launch_gate import (
+    evaluate_launch_context,
+    inspect_process_identity,
+    pid_is_alive,
+    runtime_process_state,
+)
 from autoresearch_preflight import evaluate_managed_repos_preflight
 from autoresearch_resume_prompt import build_runtime_prompt
 from autoresearch_supervisor_status import evaluate_supervisor_status
@@ -157,7 +162,31 @@ def runtime_summary(
             "state_path": str(resolved_state_path),
         }
 
-    runtime_alive = runtime is not None and pid_is_alive(runtime.get("pid"))
+    runtime_state = runtime_process_state(runtime) if runtime is not None else None
+    runtime_alive = (
+        runtime_state is not None
+        and bool(runtime_state["alive"])
+        and bool(runtime_state["matches"])
+    )
+
+    if (
+        runtime is not None
+        and runtime_state is not None
+        and bool(runtime_state["alive"])
+        and not bool(runtime_state["matches"])
+    ):
+        error = str(runtime_state["message"])
+        return persisted_runtime_summary(
+            runtime=runtime,
+            runtime_path=runtime_path,
+            launch_path=launch_path,
+            results_path=results_path,
+            state_path=resolved_state_path,
+            status="needs_human",
+            reason="runtime_identity_mismatch",
+            runtime_running=True,
+            error=error,
+        )
 
     if runtime is not None and runtime.get("status") == "needs_human":
         return persisted_runtime_summary(
@@ -439,6 +468,7 @@ def start_runtime(args: argparse.Namespace, *, runner_path: Path) -> dict[str, A
     )
     log_handle.close()
     pgid = os.getpgid(process.pid)
+    identity = inspect_process_identity(process.pid)
     runtime = build_runtime_payload(
         repo=repo,
         launch_path=launch_path,
@@ -449,6 +479,12 @@ def start_runtime(args: argparse.Namespace, *, runner_path: Path) -> dict[str, A
         pid=process.pid,
         pgid=pgid,
         command=command,
+        process_started_at=(
+            str(identity["started_at"]) if identity is not None and "started_at" in identity else None
+        ),
+        process_command=(
+            str(identity["command"]) if identity is not None and "command" in identity else None
+        ),
         terminal_reason="none",
     )
     runtime["launch_context"] = launch_context
@@ -520,6 +556,7 @@ def run_runtime(args: argparse.Namespace) -> int:
     state_path_arg = args.state_path
     runtime = load_runtime_if_exists(runtime_path)
     if runtime is None:
+        identity = inspect_process_identity(os.getpid())
         runtime = build_runtime_payload(
             repo=repo,
             launch_path=launch_path,
@@ -530,6 +567,12 @@ def run_runtime(args: argparse.Namespace) -> int:
             pid=os.getpid(),
             pgid=os.getpgid(0),
             command=[],
+            process_started_at=(
+                str(identity["started_at"]) if identity is not None and "started_at" in identity else None
+            ),
+            process_command=(
+                str(identity["command"]) if identity is not None and "command" in identity else None
+            ),
         )
         persist_runtime(runtime_path, runtime)
         write_hook_context_pointer(
@@ -716,7 +759,25 @@ def stop_runtime(args: argparse.Namespace) -> dict[str, Any]:
     runtime["requested_stop_at"] = utc_now()
     persist_runtime(runtime_path, runtime)
 
-    if pid_is_alive(pid):
+    runtime_state = runtime_process_state(runtime)
+    if bool(runtime_state["alive"]) and not bool(runtime_state["matches"]):
+        error = str(runtime_state["message"])
+        runtime["status"] = "needs_human"
+        runtime["terminal_reason"] = "runtime_identity_mismatch"
+        runtime["last_decision"] = "needs_human"
+        runtime["last_reason"] = "runtime_identity_mismatch"
+        runtime["last_error"] = error
+        persist_runtime(runtime_path, runtime)
+        return {
+            "status": "needs_human",
+            "runtime_path": str(runtime_path),
+            "pid": pid,
+            "pgid": pgid,
+            "reason": "runtime_identity_mismatch",
+            "error": error,
+        }
+
+    if bool(runtime_state["alive"]) and bool(runtime_state["matches"]):
         try:
             os.killpg(int(pgid), signal.SIGTERM)
         except ProcessLookupError:

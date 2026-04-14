@@ -16,6 +16,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 import autoresearch_runtime_ops
+import autoresearch_launch_gate
 
 
 class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
@@ -705,7 +706,16 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                 grace_seconds=0.0,
             )
             with (
-                mock.patch.object(autoresearch_runtime_ops, "pid_is_alive", return_value=True),
+                mock.patch.object(
+                    autoresearch_runtime_ops,
+                    "runtime_process_state",
+                    return_value={
+                        "alive": True,
+                        "matches": True,
+                        "reason": "running",
+                        "message": "",
+                    },
+                ),
                 mock.patch.object(
                     autoresearch_runtime_ops,
                     "wait_for_process_exit",
@@ -763,7 +773,16 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
                 encoding="utf-8",
             )
 
-            with mock.patch.object(autoresearch_runtime_ops, "pid_is_alive", return_value=True):
+            with mock.patch.object(
+                autoresearch_runtime_ops,
+                "runtime_process_state",
+                return_value={
+                    "alive": True,
+                    "matches": True,
+                    "reason": "running",
+                    "message": "",
+                },
+            ):
                 status = autoresearch_runtime_ops.runtime_summary(
                     repo=tmpdir,
                     results_path=tmpdir / "research-results.tsv",
@@ -776,6 +795,231 @@ class AutoresearchRuntimeControllerTest(AutoresearchScriptsTestBase):
             self.assertEqual(status["reason"], "stop_failed")
             self.assertTrue(status["runtime_running"])
             self.assertIn("remained alive after SIGKILL", status["error"])
+
+    def test_runtime_status_reports_identity_mismatch_for_live_reused_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            runtime_path = tmpdir / "autoresearch-runtime.json"
+            runtime_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "repo": str(tmpdir),
+                        "launch_path": str(tmpdir / "autoresearch-launch.json"),
+                        "results_path": str(tmpdir / "research-results.tsv"),
+                        "state_path": str(tmpdir / "autoresearch-state.json"),
+                        "log_path": str(tmpdir / "autoresearch-runtime.log"),
+                        "status": "running",
+                        "terminal_reason": "none",
+                        "pid": 4242,
+                        "pgid": 4242,
+                        "command": [sys.executable, "runner.py"],
+                        "process_started_at": "Mon Apr 14 10:00:00 2026",
+                        "process_command": f"{sys.executable} runner.py",
+                        "requested_stop_at": None,
+                        "last_decision": "",
+                        "last_reason": "",
+                        "last_seen_iteration": None,
+                        "last_seen_status": "",
+                        "created_at": "2026-03-21T00:00:00Z",
+                        "updated_at": "2026-03-21T00:00:00Z",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(
+                autoresearch_runtime_ops,
+                "runtime_process_state",
+                return_value={
+                    "alive": True,
+                    "matches": False,
+                    "reason": "identity_mismatch",
+                    "message": "Runtime pid 4242 is alive, but start time changed.",
+                },
+            ):
+                status = autoresearch_runtime_ops.runtime_summary(
+                    repo=tmpdir,
+                    results_path=tmpdir / "research-results.tsv",
+                    state_path_arg=None,
+                    launch_path=tmpdir / "autoresearch-launch.json",
+                    runtime_path=runtime_path,
+                )
+
+            self.assertEqual(status["status"], "needs_human")
+            self.assertEqual(status["reason"], "runtime_identity_mismatch")
+            self.assertTrue(status["runtime_running"])
+            self.assertIn("start time changed", status["error"])
+
+    def test_runtime_process_state_treats_pid_exit_during_identity_probe_as_not_running(self) -> None:
+        with (
+            mock.patch.object(
+                autoresearch_launch_gate,
+                "pid_is_alive",
+                side_effect=[True, False],
+            ),
+            mock.patch.object(
+                autoresearch_launch_gate,
+                "inspect_process_identity",
+                return_value=None,
+            ),
+        ):
+            state = autoresearch_launch_gate.runtime_process_state({"pid": 4242, "pgid": 4242})
+
+        self.assertFalse(state["alive"])
+        self.assertFalse(state["matches"])
+        self.assertEqual(state["reason"], "not_running")
+        self.assertIn("not running", state["message"])
+
+    def test_runtime_process_state_accepts_legacy_payload_without_command_snapshot(self) -> None:
+        with (
+            mock.patch.object(
+                autoresearch_launch_gate,
+                "pid_is_alive",
+                return_value=True,
+            ),
+            mock.patch.object(
+                autoresearch_launch_gate,
+                "inspect_process_identity",
+                return_value={
+                    "pid": 4242,
+                    "pgid": 4242,
+                    "started_at": "Mon Apr 14 10:00:00 2026",
+                    "command": "/real/python -c import time; time.sleep(30) arg with spaces",
+                },
+            ),
+        ):
+            state = autoresearch_launch_gate.runtime_process_state(
+                {
+                    "pid": 4242,
+                    "pgid": 4242,
+                    "command": ["/symlink/python", "-c", "import time; time.sleep(30)", "arg with spaces"],
+                }
+            )
+
+        self.assertTrue(state["alive"])
+        self.assertTrue(state["matches"])
+        self.assertEqual(state["reason"], "running")
+
+    def test_runtime_stop_refuses_to_signal_when_live_pid_identity_mismatches(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            runtime_path = tmpdir / "autoresearch-runtime.json"
+            runtime_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "repo": str(tmpdir),
+                        "launch_path": str(tmpdir / "autoresearch-launch.json"),
+                        "results_path": str(tmpdir / "research-results.tsv"),
+                        "state_path": str(tmpdir / "autoresearch-state.json"),
+                        "log_path": str(tmpdir / "autoresearch-runtime.log"),
+                        "status": "running",
+                        "terminal_reason": "none",
+                        "pid": 4242,
+                        "pgid": 4242,
+                        "command": [sys.executable, "runner.py"],
+                        "process_started_at": "Mon Apr 14 10:00:00 2026",
+                        "process_command": f"{sys.executable} runner.py",
+                        "requested_stop_at": None,
+                        "last_decision": "",
+                        "last_reason": "",
+                        "last_seen_iteration": None,
+                        "last_seen_status": "",
+                        "created_at": "2026-03-21T00:00:00Z",
+                        "updated_at": "2026-03-21T00:00:00Z",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            args = argparse.Namespace(
+                repo=str(tmpdir),
+                runtime_path=None,
+                grace_seconds=0.0,
+            )
+            with (
+                mock.patch.object(
+                    autoresearch_runtime_ops,
+                    "runtime_process_state",
+                    return_value={
+                        "alive": True,
+                        "matches": False,
+                        "reason": "identity_mismatch",
+                        "message": "Runtime pid 4242 is alive, but start time changed.",
+                    },
+                ),
+                mock.patch.object(autoresearch_runtime_ops.os, "killpg") as killpg,
+            ):
+                stopped = autoresearch_runtime_ops.stop_runtime(args)
+
+            self.assertEqual(stopped["status"], "needs_human")
+            self.assertEqual(stopped["reason"], "runtime_identity_mismatch")
+            self.assertIn("start time changed", stopped["error"])
+            killpg.assert_not_called()
+            runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+            self.assertEqual(runtime["status"], "needs_human")
+            self.assertEqual(runtime["terminal_reason"], "runtime_identity_mismatch")
+
+    def test_launch_gate_reports_identity_mismatch_for_live_reused_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            runtime_path = tmpdir / "autoresearch-runtime.json"
+            runtime_path.write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "repo": str(tmpdir),
+                        "launch_path": str(tmpdir / "autoresearch-launch.json"),
+                        "results_path": str(tmpdir / "research-results.tsv"),
+                        "state_path": str(tmpdir / "autoresearch-state.json"),
+                        "log_path": str(tmpdir / "autoresearch-runtime.log"),
+                        "status": "running",
+                        "terminal_reason": "none",
+                        "pid": 4242,
+                        "pgid": 4242,
+                        "command": [sys.executable, "runner.py"],
+                        "process_started_at": "Mon Apr 14 10:00:00 2026",
+                        "process_command": f"{sys.executable} runner.py",
+                        "requested_stop_at": None,
+                        "last_decision": "",
+                        "last_reason": "",
+                        "last_seen_iteration": None,
+                        "last_seen_status": "",
+                        "created_at": "2026-03-21T00:00:00Z",
+                        "updated_at": "2026-03-21T00:00:00Z",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(
+                autoresearch_launch_gate,
+                "runtime_process_state",
+                return_value={
+                    "alive": True,
+                    "matches": False,
+                    "reason": "identity_mismatch",
+                    "message": "Runtime pid 4242 is alive, but start time changed.",
+                },
+            ):
+                gate = autoresearch_launch_gate.evaluate_launch_context(
+                    results_path=tmpdir / "research-results.tsv",
+                    state_path_arg=None,
+                    launch_path=tmpdir / "autoresearch-launch.json",
+                    runtime_path=runtime_path,
+                )
+
+            self.assertEqual(gate["decision"], "needs_human")
+            self.assertEqual(gate["reason"], "runtime_identity_mismatch")
+            self.assertTrue(gate["runtime_running"])
+            self.assertTrue(any("start time changed" in reason for reason in gate["reasons"]))
 
     def test_runtime_launch_blocks_when_codex_bin_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

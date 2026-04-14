@@ -20,7 +20,7 @@ from autoresearch_helpers import (
     utc_now,
     write_json_atomic,
 )
-from autoresearch_launch_gate import pid_is_alive
+from autoresearch_launch_gate import runtime_process_state
 from autoresearch_lessons import append_summary_lesson_if_needed, lessons_path_from_results
 
 
@@ -62,8 +62,13 @@ def ensure_runtime_not_running(runtime_path: Path) -> None:
     existing, runtime_error = load_runtime_with_error(runtime_path)
     if runtime_error is not None:
         raise AutoresearchError(runtime_error)
-    if existing is not None and pid_is_alive(existing.get("pid")):
+    if existing is None:
+        return
+    runtime_state = runtime_process_state(existing)
+    if bool(runtime_state["alive"]) and bool(runtime_state["matches"]):
         raise AutoresearchError("An autoresearch runtime is already running for this repo.")
+    if bool(runtime_state["alive"]) and not bool(runtime_state["matches"]):
+        raise AutoresearchError(str(runtime_state["message"]))
 
 
 def persist_runtime(runtime_path: Path, payload: dict[str, Any]) -> None:

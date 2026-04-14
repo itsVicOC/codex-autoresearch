@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,128 @@ def pid_is_alive(pid: int | None) -> bool:
     except ProcessLookupError:
         return False
     return True
+
+
+def _ps_field(pid: int, field: str) -> str | None:
+    completed = subprocess.run(
+        ["ps", "-p", str(pid), "-o", f"{field}="],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return None
+    value = completed.stdout.strip()
+    return value or None
+
+
+def inspect_process_identity(pid: int | None) -> dict[str, object] | None:
+    if pid is None or pid <= 0 or not pid_is_alive(pid):
+        return None
+    pgid_text = _ps_field(pid, "pgid")
+    started_at = _ps_field(pid, "lstart")
+    command = _ps_field(pid, "command")
+    if pgid_text is None or started_at is None or command is None:
+        return None
+    try:
+        pgid = int(pgid_text)
+    except ValueError:
+        return None
+    return {
+        "pid": pid,
+        "pgid": pgid,
+        "started_at": started_at,
+        "command": command,
+    }
+
+
+def normalize_command_text(value: str | None) -> str:
+    return " ".join(str(value or "").split())
+
+
+def expected_runtime_command_text(runtime_payload: dict[str, Any]) -> str:
+    stored = runtime_payload.get("process_command")
+    if isinstance(stored, str) and stored.strip():
+        return normalize_command_text(stored)
+    return ""
+
+
+def runtime_process_state(runtime_payload: dict[str, Any]) -> dict[str, object]:
+    pid = runtime_payload.get("pid")
+    if not isinstance(pid, int) or pid <= 0:
+        return {
+            "alive": False,
+            "matches": False,
+            "reason": "missing_pid",
+            "message": "Runtime state is missing a valid pid.",
+        }
+    if not pid_is_alive(pid):
+        return {
+            "alive": False,
+            "matches": False,
+            "reason": "not_running",
+            "message": f"Runtime process {pid} is not running.",
+        }
+
+    current = inspect_process_identity(pid)
+    if current is None:
+        if not pid_is_alive(pid):
+            return {
+                "alive": False,
+                "matches": False,
+                "reason": "not_running",
+                "message": f"Runtime process {pid} is not running.",
+            }
+        return {
+            "alive": True,
+            "matches": False,
+            "reason": "inspection_failed",
+            "message": f"Could not verify runtime process identity for pid {pid}.",
+        }
+
+    expected_started_at = runtime_payload.get("process_started_at")
+    if isinstance(expected_started_at, str) and expected_started_at.strip():
+        if current["started_at"] != expected_started_at:
+            return {
+                "alive": True,
+                "matches": False,
+                "reason": "identity_mismatch",
+                "message": (
+                    f"Runtime pid {pid} is alive, but start time changed "
+                    f"({expected_started_at} != {current['started_at']})."
+                ),
+            }
+
+    expected_command = expected_runtime_command_text(runtime_payload)
+    if expected_command and normalize_command_text(str(current["command"])) != expected_command:
+        return {
+            "alive": True,
+            "matches": False,
+            "reason": "identity_mismatch",
+            "message": (
+                f"Runtime pid {pid} is alive, but command no longer matches "
+                "the recorded runtime process."
+            ),
+        }
+
+    expected_pgid = runtime_payload.get("pgid")
+    if isinstance(expected_pgid, int) and expected_pgid > 0 and current["pgid"] != expected_pgid:
+        return {
+            "alive": True,
+            "matches": False,
+            "reason": "identity_mismatch",
+            "message": (
+                f"Runtime pid {pid} is alive, but process group changed "
+                f"({expected_pgid} != {current['pgid']})."
+            ),
+        }
+
+    return {
+        "alive": True,
+        "matches": True,
+        "reason": "running",
+        "message": "",
+        "current": current,
+    }
 
 
 def evaluate_launch_context(
@@ -71,10 +194,34 @@ def evaluate_launch_context(
             runtime_error = str(exc)
             reasons.append(runtime_error)
 
+    runtime_state = runtime_process_state(runtime_payload) if runtime_payload is not None else None
+    if (
+        runtime_payload is not None
+        and runtime_state is not None
+        and bool(runtime_state["alive"])
+        and not bool(runtime_state["matches"])
+    ):
+        reasons.append(str(runtime_state["message"]))
+        return {
+            "decision": "needs_human",
+            "reason": "runtime_identity_mismatch",
+            "resume_strategy": "none",
+            "results_path": str(results_path),
+            "state_path": str(state_path),
+            "launch_path": str(launch_path),
+            "runtime_path": str(runtime_path),
+            "launch_manifest_present": launch_manifest is not None,
+            "runtime_present": True,
+            "runtime_running": True,
+            "reasons": reasons,
+        }
+
     if (
         not ignore_running_runtime
         and runtime_payload is not None
-        and pid_is_alive(runtime_payload.get("pid"))
+        and runtime_state is not None
+        and bool(runtime_state["alive"])
+        and bool(runtime_state["matches"])
     ):
         reasons.append("An autoresearch runtime is already active for this repo.")
         return {
