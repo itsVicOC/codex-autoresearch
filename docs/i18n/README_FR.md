@@ -34,13 +34,12 @@ Inspiré par [autoresearch de Karpathy](https://github.com/karpathy/autoresearch
 
 ## Démarrage rapide
 
-```bash
-# Installation
-git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
+```text
+# Installation dans Codex (recommandée)
+$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-Ouvrez Codex dans votre projet et lancez-vous :
+Redémarrez Codex, ouvrez votre projet et lancez-vous :
 
 ```
 Vous:  $codex-autoresearch
@@ -58,7 +57,7 @@ Codex: Lancement en arrière-plan — référence : 47. Itération en cours.
 
 Chaque amélioration s'accumule. Chaque échec est annulé. Tout est journalisé.
 
-Plus d'options d'installation dans [INSTALL.md](../INSTALL.md). Manuel complet dans [GUIDE.md](../GUIDE.md).
+Options de copie manuelle, de symlink et d'installation utilisateur dans [INSTALL.md](../INSTALL.md). Manuel complet dans [GUIDE.md](../GUIDE.md).
 
 ## Comment ça fonctionne
 
@@ -131,7 +130,7 @@ Un seul succès réinitialise tous les compteurs.
 
 ## Journal des résultats
 
-Chaque itération est enregistrée dans `research-results.tsv` :
+Chaque itération est enregistrée dans `autoresearch-results/results.tsv` :
 
 ```
 iteration  commit   metric  delta   status    description
@@ -141,7 +140,7 @@ iteration  commit   metric  delta   status    description
 3          d4e5f6g  38      -3      keep      type-narrow API response handlers
 ```
 
-Les expériences échouées sont annulées dans git mais restent dans le journal. Le journal est la véritable piste d'audit.
+Les expériences échouées sont annulées dans git mais restent dans le journal. Le journal est la véritable piste d'audit, tandis que `autoresearch-results/state.json` est l'instantané de reprise.
 
 ## Fonctionnalités supplémentaires
 
@@ -164,7 +163,7 @@ C'est le plus efficace quand l'objectif et la métrique sont clairs — augmente
 
 **Comment l'arrêter ?** Foreground : interrompez Codex. Background : `$codex-autoresearch` puis demandez l'arrêt.
 
-**Peut-il reprendre après une interruption ?** Oui. Il reprend automatiquement depuis `autoresearch-state.json`.
+**Peut-il reprendre après une interruption ?** Oui. Il reprend automatiquement depuis `autoresearch-results/state.json`.
 
 **Comment l'utiliser en CI ?** `Mode: exec` avec `codex exec`. Toute la configuration en amont, sortie JSON, codes de sortie 0/1/2.
 

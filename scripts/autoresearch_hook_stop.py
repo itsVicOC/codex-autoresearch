@@ -24,12 +24,16 @@ FOLLOWUP_CONTINUATION_PROMPT = (
 
 
 def run_supervisor(context) -> dict[str, object] | None:
-    if context.skill_root is None:
+    if context.helper_root is None:
         return None
-    helper = context.skill_root / "scripts" / "autoresearch_supervisor_status.py"
+    if context.artifacts.results_path is None:
+        return None
+    helper = context.helper_root / "autoresearch_supervisor_status.py"
     command = [
         sys.executable,
         str(helper),
+        "--repo",
+        str(context.repo),
         "--results-path",
         str(context.artifacts.results_path),
     ]
@@ -60,7 +64,7 @@ def emit_block(reason: str) -> None:
 
 def main() -> int:
     context = build_context(__file__)
-    if context is None or context.skill_root is None:
+    if context is None or context.helper_root is None:
         return 0
     if not context.session_is_autoresearch:
         return 0

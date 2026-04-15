@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from autoresearch_helpers import (
+    ARTIFACT_DIR_NAME,
     AutoresearchError,
     LESSONS_FILE_NAME,
     default_lessons_path,
@@ -536,7 +537,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     append = subparsers.add_parser("append")
-    append.add_argument("--lessons-path", default=str(default_lessons_path()))
+    append.add_argument("--lessons-path", default=str(default_lessons_path()), help=argparse.SUPPRESS)
     append.add_argument("--title", required=True)
     append.add_argument("--strategy", required=True)
     append.add_argument("--outcome", required=True, choices=LESSON_OUTCOMES)
@@ -546,7 +547,7 @@ def build_parser() -> argparse.ArgumentParser:
     append.add_argument("--timestamp")
 
     show = subparsers.add_parser("list")
-    show.add_argument("--lessons-path", default=str(default_lessons_path()))
+    show.add_argument("--lessons-path", default=str(default_lessons_path()), help=argparse.SUPPRESS)
     return parser
 
 

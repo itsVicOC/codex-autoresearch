@@ -26,7 +26,7 @@ def emit_additional_context(text: str) -> None:
 
 def main() -> int:
     context = build_context(__file__)
-    if context is None or context.skill_root is None:
+    if context is None:
         return 0
     if not context.session_is_autoresearch:
         return 0

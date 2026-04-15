@@ -27,6 +27,16 @@ SESSION_STATUS_MESSAGE = "codex-autoresearch SessionStart hook"
 STOP_STATUS_MESSAGE = "codex-autoresearch Stop hook"
 SESSION_TIMEOUT_SECONDS = 5
 STOP_TIMEOUT_SECONDS = 10
+HELPER_BUNDLE_SCRIPT_NAMES = (
+    "autoresearch_acceptance.py",
+    "autoresearch_supervisor_status.py",
+    "autoresearch_helpers.py",
+    "autoresearch_artifacts.py",
+    "autoresearch_core.py",
+    "autoresearch_paths.py",
+    "autoresearch_repo_targets.py",
+    "autoresearch_workspace.py",
+)
 
 
 def codex_home() -> Path:
@@ -65,6 +75,24 @@ def stop_script_path() -> Path:
     return hooks_home() / STOP_SCRIPT_NAME
 
 
+def managed_helper_script_path(name: str) -> Path:
+    return hooks_home() / name
+
+
+def source_helper_script_path(name: str) -> Path:
+    return Path(__file__).resolve().with_name(name)
+
+
+def managed_bundle_paths() -> list[Path]:
+    return [
+        common_script_path(),
+        context_script_path(),
+        session_script_path(),
+        stop_script_path(),
+        *(managed_helper_script_path(name) for name in HELPER_BUNDLE_SCRIPT_NAMES),
+    ]
+
+
 def source_session_script() -> Path:
     return Path(__file__).resolve().with_name("autoresearch_hook_session_start.py")
 
@@ -79,10 +107,6 @@ def source_common_script() -> Path:
 
 def source_context_script() -> Path:
     return Path(__file__).resolve().with_name("autoresearch_hook_context.py")
-
-
-def current_skill_root() -> Path:
-    return Path(__file__).resolve().parents[1]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -261,17 +285,22 @@ def count_all_hook_groups(payload: dict[str, Any]) -> int:
 
 
 def write_manifest(*, feature_enabled_by_installer: bool) -> None:
+    managed_scripts = {
+        "common": str(common_script_path()),
+        "context": str(context_script_path()),
+        "session_start": str(session_script_path()),
+        "stop": str(stop_script_path()),
+    }
+    managed_scripts.update(
+        {name: str(managed_helper_script_path(name)) for name in HELPER_BUNDLE_SCRIPT_NAMES}
+    )
     payload = {
         "version": MANIFEST_VERSION,
         "installed_at": utc_now(),
-        "skill_root_fallback": str(current_skill_root()),
+        "helper_root_fallback": str(hooks_home()),
+        "skill_root_fallback": str(hooks_home()),
         "feature_enabled_by_installer": feature_enabled_by_installer,
-        "managed_scripts": {
-            "common": str(common_script_path()),
-            "context": str(context_script_path()),
-            "session_start": str(session_script_path()),
-            "stop": str(stop_script_path()),
-        },
+        "managed_scripts": managed_scripts,
     }
     manifest_path().parent.mkdir(parents=True, exist_ok=True)
     manifest_path().write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -289,14 +318,18 @@ def read_manifest() -> dict[str, Any]:
 
 def install_managed_scripts() -> None:
     hooks_home().mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source_common_script(), common_script_path())
-    shutil.copy2(source_context_script(), context_script_path())
-    shutil.copy2(source_session_script(), session_script_path())
-    shutil.copy2(source_stop_script(), stop_script_path())
-    common_script_path().chmod(0o755)
-    context_script_path().chmod(0o755)
-    session_script_path().chmod(0o755)
-    stop_script_path().chmod(0o755)
+    for source_path, destination_path in (
+        (source_common_script(), common_script_path()),
+        (source_context_script(), context_script_path()),
+        (source_session_script(), session_script_path()),
+        (source_stop_script(), stop_script_path()),
+        *(
+            (source_helper_script_path(name), managed_helper_script_path(name))
+            for name in HELPER_BUNDLE_SCRIPT_NAMES
+        ),
+    ):
+        shutil.copy2(source_path, destination_path)
+        destination_path.chmod(0o755)
 
 
 def status() -> dict[str, Any]:
@@ -305,6 +338,7 @@ def status() -> dict[str, Any]:
         load_json_file(hooks_path(), default={"hooks": {}})
     )
     manifest = read_manifest()
+    managed_paths = managed_bundle_paths()
     session_command = installed_command(session_script_path())
     stop_command = installed_command(stop_script_path())
     hooks_map = hooks_payload.get("hooks", {})
@@ -323,23 +357,16 @@ def status() -> dict[str, Any]:
         "feature_enabled_by_installer": bool(manifest.get("feature_enabled_by_installer")),
         "managed_session_start_installed": managed_session and session_script_path().exists(),
         "managed_stop_installed": managed_stop and stop_script_path().exists(),
-        "managed_scripts_present": (
-            common_script_path().exists()
-            and context_script_path().exists()
-            and session_script_path().exists()
-            and stop_script_path().exists()
-        ),
+        "managed_scripts_present": all(path.exists() for path in managed_paths),
         "manifest_present": manifest_path().exists(),
-        "skill_root_fallback": manifest.get("skill_root_fallback") or str(current_skill_root()),
+        "helper_root_fallback": manifest.get("helper_root_fallback") or str(hooks_home()),
+        "skill_root_fallback": manifest.get("skill_root_fallback") or str(hooks_home()),
         "other_hook_groups_present": count_all_hook_groups(hooks_payload) - int(managed_session) - int(managed_stop),
         "ready_for_future_sessions": (
             parse_feature_value(config_text) is True
             and managed_session
             and managed_stop
-            and common_script_path().exists()
-            and context_script_path().exists()
-            and session_script_path().exists()
-            and stop_script_path().exists()
+            and all(path.exists() for path in managed_paths)
         ),
     }
 
@@ -454,13 +481,7 @@ def uninstall() -> dict[str, Any]:
         )
         config_backup = write_text_with_backup(config_path(), updated_config)
 
-    for script_path in (
-        common_script_path(),
-        context_script_path(),
-        session_script_path(),
-        stop_script_path(),
-        manifest_path(),
-    ):
+    for script_path in (*managed_bundle_paths(), manifest_path()):
         if script_path.exists():
             script_path.unlink()
     if hooks_home().exists():

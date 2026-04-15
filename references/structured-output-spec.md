@@ -80,9 +80,9 @@ Required completion summary:
 
 Artifact:
 
-- `research-results.tsv`
-- `autoresearch-lessons.md` (if lessons were extracted)
-- `autoresearch-state.json` (session state snapshot, not committed to git; see `references/session-resume-protocol.md`)
+- `autoresearch-results/results.tsv`
+- `autoresearch-results/lessons.md` (if lessons were extracted)
+- `autoresearch-results/state.json` (session state snapshot, not committed to git; see `references/session-resume-protocol.md`)
 
 ### plan
 
@@ -157,9 +157,9 @@ security/{YYMMDD}-{HHMM}-{slug}/
 
 Ship mode also persists the generic iterating-run artifacts:
 
-- `research-results.tsv`
-- `autoresearch-lessons.md` (if lessons were extracted)
-- `autoresearch-state.json`
+- `autoresearch-results/results.tsv`
+- `autoresearch-results/lessons.md` (if lessons were extracted)
+- `autoresearch-results/state.json`
 
 Output directory:
 
