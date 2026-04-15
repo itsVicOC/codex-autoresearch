@@ -23,7 +23,7 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
         return home / ".codex" / "autoresearch-hooks" / name
 
     def repo_hook_context_path(self, repo: Path) -> Path:
-        return repo / "autoresearch-hook-context.json"
+        return self.managed_context_path(repo)
 
     def run_installed_hook(
         self,
@@ -197,9 +197,32 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
 
             repo = root / "active-repo"
             repo.mkdir()
-            (repo / "research-results.tsv").write_text(
-                "iteration\tcommit\tmetric\tdelta\tguard\tstatus\tdescription\n",
-                encoding="utf-8",
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            self.run_script(
+                "autoresearch_init_run.py",
+                "--repo",
+                str(repo),
+                "--mode",
+                "loop",
+                "--session-mode",
+                "foreground",
+                "--goal",
+                "Reduce failures",
+                "--scope",
+                "src/**/*.py",
+                "--metric-name",
+                "failure count",
+                "--direction",
+                "lower",
+                "--verify",
+                "pytest -q",
+                "--baseline-metric",
+                "10",
+                "--baseline-commit",
+                "base111",
+                "--baseline-description",
+                "baseline failures",
+                env=env,
             )
             completed = self.run_installed_hook(
                 hook_path,
@@ -278,6 +301,8 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
 
             self.run_script(
                 "autoresearch_init_run.py",
+                "--repo",
+                str(repo),
                 "--results-path",
                 str(custom_results),
                 "--state-path",
@@ -308,11 +333,11 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             pointer_payload = json.loads(
                 self.repo_hook_context_path(repo).read_text(encoding="utf-8")
             )
-            self.assertEqual(pointer_payload["version"], 1)
+            self.assertEqual(pointer_payload["version"], 2)
             self.assertTrue(pointer_payload["active"])
             self.assertEqual(pointer_payload["session_mode"], "foreground")
-            self.assertEqual(pointer_payload["results_path"], "artifacts/custom-results.tsv")
-            self.assertEqual(pointer_payload["state_path"], "artifacts/custom-state.json")
+            self.assertEqual(Path(pointer_payload["results_path"]).resolve(), custom_results.resolve())
+            self.assertEqual(Path(pointer_payload["state_path"]).resolve(), custom_state.resolve())
             self.assertIsNone(pointer_payload["launch_path"])
             self.assertIsNone(pointer_payload["runtime_path"])
 
@@ -352,6 +377,8 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
 
             self.run_script(
                 "autoresearch_init_run.py",
+                "--repo",
+                str(repo),
                 "--results-path",
                 str(custom_results),
                 "--state-path",
@@ -427,9 +454,9 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             self.run_script(
                 "autoresearch_init_run.py",
                 "--results-path",
-                str(repo / "research-results.tsv"),
+                str(repo / "autoresearch-results/results.tsv"),
                 "--state-path",
-                str(repo / "autoresearch-state.json"),
+                str(repo / "autoresearch-results/state.json"),
                 "--mode",
                 "loop",
                 "--goal",
@@ -498,9 +525,9 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             self.run_script(
                 "autoresearch_init_run.py",
                 "--results-path",
-                str(terminal_repo / "research-results.tsv"),
+                str(terminal_repo / "autoresearch-results/results.tsv"),
                 "--state-path",
-                str(terminal_repo / "autoresearch-state.json"),
+                str(terminal_repo / "autoresearch-results/state.json"),
                 "--mode",
                 "loop",
                 "--goal",
@@ -537,7 +564,7 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             completed.check_returncode()
             self.assertEqual(completed.stdout, "")
 
-    def test_stop_hook_uses_background_opt_in_and_custom_paths(self) -> None:
+    def test_stop_hook_uses_background_opt_in_and_workspace_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             home = root / "home"
@@ -546,17 +573,16 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             hook_path = self.installed_hook_path(home, "stop.py")
 
             repo = root / "background-repo"
-            artifacts = repo / "artifacts"
-            artifacts.mkdir(parents=True)
-            custom_results = artifacts / "custom-results.tsv"
-            custom_state = artifacts / "custom-state.json"
+            repo.mkdir()
+            results_path = self.managed_results_path(repo)
+            state_path = self.managed_state_path(repo)
 
             self.run_script(
                 "autoresearch_init_run.py",
                 "--results-path",
-                str(custom_results),
+                str(results_path),
                 "--state-path",
-                str(custom_state),
+                str(state_path),
                 "--mode",
                 "loop",
                 "--goal",
@@ -580,10 +606,10 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
 
             hook_env = dict(env)
             hook_env["AUTORESEARCH_HOOK_ACTIVE"] = "1"
-            hook_env["AUTORESEARCH_HOOK_RESULTS_PATH"] = str(custom_results)
-            hook_env["AUTORESEARCH_HOOK_STATE_PATH"] = str(custom_state)
-            hook_env["AUTORESEARCH_HOOK_LAUNCH_PATH"] = str(artifacts / "custom-launch.json")
-            hook_env["AUTORESEARCH_HOOK_RUNTIME_PATH"] = str(artifacts / "custom-runtime.json")
+            hook_env["AUTORESEARCH_HOOK_RESULTS_PATH"] = str(results_path)
+            hook_env["AUTORESEARCH_HOOK_STATE_PATH"] = str(state_path)
+            hook_env["AUTORESEARCH_HOOK_LAUNCH_PATH"] = str(self.managed_launch_path(repo))
+            hook_env["AUTORESEARCH_HOOK_RUNTIME_PATH"] = str(self.managed_runtime_path(repo))
 
             completed = self.run_installed_hook(
                 hook_path,
@@ -614,9 +640,9 @@ class AutoresearchHooksCtlTest(AutoresearchScriptsTestBase):
             self.run_script(
                 "autoresearch_init_run.py",
                 "--results-path",
-                str(repo / "research-results.tsv"),
+                str(repo / "autoresearch-results/results.tsv"),
                 "--state-path",
-                str(repo / "autoresearch-state.json"),
+                str(repo / "autoresearch-results/state.json"),
                 "--mode",
                 "loop",
                 "--goal",

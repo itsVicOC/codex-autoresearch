@@ -34,13 +34,12 @@
 
 ## 빠른 시작
 
-```bash
-# 설치
-git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
+```text
+# Codex에 설치 (권장)
+$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-프로젝트에서 Codex를 열고:
+Codex를 다시 시작한 뒤 프로젝트에서 열고:
 
 ```
 당신:  $codex-autoresearch
@@ -58,7 +57,7 @@ Codex: 백그라운드 실행 시작 — 베이스라인: 47. 반복 중.
 
 개선은 누적되고, 실패는 롤백되며, 모든 것이 기록됩니다.
 
-추가 설치 방법은 [INSTALL.md](../INSTALL.md), 전체 매뉴얼은 [GUIDE.md](../GUIDE.md) 참조.
+수동 복사, symlink, 사용자 범위 설치는 [INSTALL.md](../INSTALL.md), 전체 매뉴얼은 [GUIDE.md](../GUIDE.md) 참조.
 
 ## 작동 방식
 
@@ -131,7 +130,7 @@ Codex: 백그라운드 실행 시작 — 베이스라인: 47. 반복 중.
 
 ## 결과 로그
 
-각 반복은 `research-results.tsv`에 기록됩니다:
+각 반복은 `autoresearch-results/results.tsv`에 기록됩니다:
 
 ```
 iteration  commit   metric  delta   status    description
@@ -141,7 +140,7 @@ iteration  commit   metric  delta   status    description
 3          d4e5f6g  38      -3      keep      type-narrow API response handlers
 ```
 
-실패한 실험은 git에서 롤백되지만 로그에는 남습니다. 로그가 진정한 감사 추적입니다.
+실패한 실험은 git에서 롤백되지만 로그에는 남습니다. 로그가 진정한 감사 추적이며, `autoresearch-results/state.json`은 재개 스냅샷입니다.
 
 ## 추가 기능
 
@@ -164,7 +163,7 @@ iteration  commit   metric  delta   status    description
 
 **어떻게 멈추나요?** Foreground: Codex를 중단. Background: `$codex-autoresearch`에서 중단 요청.
 
-**중단 후 재개 가능한가요?** 네. `autoresearch-state.json`에서 자동으로 재개합니다.
+**중단 후 재개 가능한가요?** 네. `autoresearch-results/state.json`에서 자동으로 재개합니다.
 
 **CI에서 어떻게 사용하나요?** `Mode: exec`와 `codex exec`. 모든 설정 사전 제공, JSON 출력, 종료 코드 0/1/2.
 

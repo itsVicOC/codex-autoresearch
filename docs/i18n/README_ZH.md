@@ -34,13 +34,12 @@
 
 ## 快速上手
 
-```bash
-# 安装
-git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
+```text
+# 在 Codex 中安装（推荐）
+$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-在项目中打开 Codex：
+重启 Codex，然后在项目中打开：
 
 ```
 你:    $codex-autoresearch
@@ -58,7 +57,7 @@ Codex: 开始后台运行 -- 基线：47。持续迭代中。
 
 改善累积，失败回滚，全程记录。
 
-更多安装方式见 [INSTALL.md](../INSTALL.md)。完整操作手册见 [GUIDE.md](../GUIDE.md)。
+手动复制、symlink、用户级安装方式见 [INSTALL.md](../INSTALL.md)。完整操作手册见 [GUIDE.md](../GUIDE.md)。
 
 ## 工作原理
 
@@ -131,7 +130,7 @@ Codex: 开始后台运行 -- 基线：47。持续迭代中。
 
 ## 结果日志
 
-每次迭代记录在 `research-results.tsv` 中：
+每次迭代记录在 `autoresearch-results/results.tsv` 中：
 
 ```
 iteration  commit   metric  delta   status    description
@@ -141,7 +140,7 @@ iteration  commit   metric  delta   status    description
 3          d4e5f6g  38      -3      keep      type-narrow API response handlers
 ```
 
-失败的实验从 git 回滚，但保留在日志中。日志才是真正的审计记录。
+失败的实验从 git 回滚，但保留在日志中。日志才是真正的审计记录，而 `autoresearch-results/state.json` 是恢复快照。
 
 ## 更多功能
 
@@ -164,7 +163,7 @@ iteration  commit   metric  delta   status    description
 
 **怎么停止？** Foreground：中断 Codex。Background：`$codex-autoresearch` 然后要求停止。
 
-**中断后能恢复吗？** 能。自动从 `autoresearch-state.json` 恢复。
+**中断后能恢复吗？** 能。自动从 `autoresearch-results/state.json` 恢复。
 
 **如何在 CI 中使用？** `Mode: exec` 配合 `codex exec`。所有配置预先提供，JSON 输出，退出码 0/1/2。
 

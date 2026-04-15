@@ -24,7 +24,8 @@ class CheckSkillInvariantsTest(unittest.TestCase):
         self.assertRegex(manifest, r"(?m)^\s*allow_implicit_invocation:\s*false\s*$")
 
     def write_exec_repo(self, repo: Path) -> None:
-        (repo / "research-results.tsv").write_text(
+        (repo / "autoresearch-results").mkdir(parents=True, exist_ok=True)
+        (repo / "autoresearch-results/results.tsv").write_text(
             "\n".join(
                 [
                     "# metric_direction: lower",
@@ -36,12 +37,14 @@ class CheckSkillInvariantsTest(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
-        (repo / "autoresearch-lessons.md").write_text("# lessons\n", encoding="utf-8")
+        (repo / "autoresearch-results/context.json").write_text("{}\n", encoding="utf-8")
+        (repo / "autoresearch-results/lessons.md").write_text("# lessons\n", encoding="utf-8")
 
     def test_exec_expect_improvement_supports_higher_direction(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
-            (repo / "research-results.tsv").write_text(
+            (repo / "autoresearch-results").mkdir(parents=True, exist_ok=True)
+            (repo / "autoresearch-results/results.tsv").write_text(
                 "\n".join(
                     [
                         "# metric_direction: higher",
@@ -53,7 +56,8 @@ class CheckSkillInvariantsTest(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            (repo / "autoresearch-lessons.md").write_text("# lessons\n", encoding="utf-8")
+            (repo / "autoresearch-results/context.json").write_text("{}\n", encoding="utf-8")
+            (repo / "autoresearch-results/lessons.md").write_text("# lessons\n", encoding="utf-8")
 
             completed = self.run_invariant_check(
                 "exec",
@@ -68,7 +72,8 @@ class CheckSkillInvariantsTest(unittest.TestCase):
     def test_exec_invariants_reject_keep_rows_without_commit_hash(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
-            (repo / "research-results.tsv").write_text(
+            (repo / "autoresearch-results").mkdir(parents=True, exist_ok=True)
+            (repo / "autoresearch-results/results.tsv").write_text(
                 "\n".join(
                     [
                         "# metric_direction: lower",
@@ -80,7 +85,8 @@ class CheckSkillInvariantsTest(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            (repo / "autoresearch-lessons.md").write_text("# lessons\n", encoding="utf-8")
+            (repo / "autoresearch-results/context.json").write_text("{}\n", encoding="utf-8")
+            (repo / "autoresearch-results/lessons.md").write_text("# lessons\n", encoding="utf-8")
 
             completed = self.run_invariant_check("exec", "--repo", str(repo))
 
@@ -91,7 +97,8 @@ class CheckSkillInvariantsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             event_log = repo / "events.jsonl"
-            (repo / "research-results.tsv").write_text(
+            (repo / "autoresearch-results").mkdir(parents=True, exist_ok=True)
+            (repo / "autoresearch-results/results.tsv").write_text(
                 "\n".join(
                     [
                         "# metric_direction: lower",
@@ -103,7 +110,8 @@ class CheckSkillInvariantsTest(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            (repo / "autoresearch-lessons.md").write_text("# lessons\n", encoding="utf-8")
+            (repo / "autoresearch-results/context.json").write_text("{}\n", encoding="utf-8")
+            (repo / "autoresearch-results/lessons.md").write_text("# lessons\n", encoding="utf-8")
             event_log.write_text(
                 'command: python3 scripts/autoresearch_init_run.py\n',
                 encoding="utf-8",
@@ -124,7 +132,8 @@ class CheckSkillInvariantsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             event_log = repo / "events.jsonl"
-            (repo / "research-results.tsv").write_text(
+            (repo / "autoresearch-results").mkdir(parents=True, exist_ok=True)
+            (repo / "autoresearch-results/results.tsv").write_text(
                 "\n".join(
                     [
                         "# metric_direction: lower",
@@ -136,7 +145,8 @@ class CheckSkillInvariantsTest(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            (repo / "autoresearch-lessons.md").write_text("# lessons\n", encoding="utf-8")
+            (repo / "autoresearch-results/context.json").write_text("{}\n", encoding="utf-8")
+            (repo / "autoresearch-results/lessons.md").write_text("# lessons\n", encoding="utf-8")
             event_log.write_text(
                 "\n".join(
                     [

@@ -103,22 +103,22 @@ When the user replies with launch approval (`go`, `start`, `launch`, or an equiv
 2. By handoff time, hooks should already have been checked and auto-installed immediately after the initial repo scan.
    - If hooks were just installed in the current session, surface the short mode-shaping note **before** the user chooses `foreground` or `background`: `background` can use them immediately, while the current `foreground` session would need a new Codex session / reopened thread to pick them up.
 3. If the user chose **foreground**, keep the loop in the current Codex session:
-   - initialize `research-results.tsv` and `autoresearch-state.json`
-   - do not create `autoresearch-launch.json`, `autoresearch-runtime.json`, or `autoresearch-runtime.log`
+   - initialize `autoresearch-results/results.tsv`, `autoresearch-results/state.json`, and `autoresearch-results/context.json`
+   - do not create `autoresearch-results/launch.json`, `autoresearch-results/runtime.json`, or `autoresearch-results/runtime.log`
    - keep the runtime checklist active: baseline first, then log every completed experiment before the next one starts
    - if hooks were just installed in this current session, remind the user once that this specific foreground session will not pick them up mid-session; reopening/resuming the same thread in a new session is the path if they want hooks there
    - report that the foreground run has started in the current session
-4. If the user chose **background**, persist the confirmed config to `autoresearch-launch.json`, start the detached runtime controller, and report where the runtime/log artifacts live.
+4. If the user chose **background**, persist the confirmed config to `autoresearch-results/launch.json`, start the detached runtime controller, and report the Results directory. The wizard supplies the confirmed `--workspace-root <workspace_root>` internally; users should not have to type it.
    - the nested background session must receive the same runtime checklist, especially the "log before the next experiment" rule
 5. Do not ask the user to rerun a shell wrapper command just to continue overnight.
 
 If the chosen path is **Fresh start** after recovery analysis, the handoff should be:
 
 ```bash
-python3 <skill-root>/scripts/autoresearch_runtime_ctl.py launch --fresh-start ...
+python3 <skill-root>/scripts/autoresearch_runtime_ctl.py launch --repo <primary_repo> --workspace-root <workspace_root> --fresh-start ...
 ```
 
-This archives prior persistent run-control artifacts to `.prev` before the new background run begins, including `research-results.tsv`, `autoresearch-state.json`, `autoresearch-hook-context.json`, `autoresearch-launch.json`, `autoresearch-runtime.json`, and `autoresearch-runtime.log`.
+This archives prior persistent run-control artifacts inside `autoresearch-results/` to `.prev` before the new background run begins. Legacy repo-root artifacts are not recovered into the new schema; the user must choose fresh start or move/archive them.
 
 ## Optional Question Appendix
 
@@ -271,7 +271,7 @@ If validation fails, tell the user in plain language what went wrong and suggest
 
 ## Mini-Wizard (Session Resume)
 
-When `session-resume-protocol.md` detects a prior run with a valid `autoresearch-state.json` but inconsistent TSV (Recovery Priority 2), the full wizard is replaced by a single-round mini-wizard:
+When `session-resume-protocol.md` detects a prior run with a valid `autoresearch-results/state.json` but inconsistent TSV (Recovery Priority 2), the full wizard is replaced by a single-round mini-wizard:
 
 1. Show what was detected:
    - Prior run tag, iteration count, best metric, and last status from the JSON state.
@@ -281,9 +281,9 @@ When `session-resume-protocol.md` detects a prior run with a valid `autoresearch
    - **Fresh start:** archive old artifacts with `.prev` suffixes and proceed with the full wizard.
 3. If the user chooses to resume, present a condensed confirmation summary (same format as Step 3 above but sourced from JSON `config` instead of repo scanning).
 4. The user replies "go" and the loop starts immediately in the chosen run mode:
-   - foreground resume continues directly from `research-results.tsv` + `autoresearch-state.json`
-   - background resume launches through `autoresearch_runtime_ctl.py launch ...`
-   - fresh-start background handoff uses `autoresearch_runtime_ctl.py launch --fresh-start ...`
+   - foreground resume continues directly from `autoresearch-results/results.tsv` + `autoresearch-results/state.json`
+   - background resume launches through `autoresearch_runtime_ctl.py launch --repo <primary_repo> --workspace-root <workspace_root> ...`
+   - fresh-start background handoff uses `autoresearch_runtime_ctl.py launch --repo <primary_repo> --workspace-root <workspace_root> --fresh-start ...`
    No further rounds.
 
 The mini-wizard respects the same two-phase boundary: all questions happen before launch.

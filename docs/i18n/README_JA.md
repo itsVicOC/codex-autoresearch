@@ -34,13 +34,12 @@
 
 ## クイックスタート
 
-```bash
-# インストール
-git clone https://github.com/leo-lilinxiao/codex-autoresearch.git
-cp -r codex-autoresearch your-project/.agents/skills/codex-autoresearch
+```text
+# Codex にインストール（推奨）
+$skill-installer install https://github.com/leo-lilinxiao/codex-autoresearch
 ```
 
-プロジェクトで Codex を開く：
+Codex を再起動してから、プロジェクトで開きます：
 
 ```
 あなた: $codex-autoresearch
@@ -58,7 +57,7 @@ Codex:  background 実行を開始 — ベースライン：47。反復中。
 
 改善は蓄積され、失敗はロールバックされ、全てが記録されます。
 
-その他のインストール方法は [INSTALL.md](../INSTALL.md)、完全な操作マニュアルは [GUIDE.md](../GUIDE.md) を参照。
+手動コピー、symlink、ユーザースコープの方法は [INSTALL.md](../INSTALL.md)、完全な操作マニュアルは [GUIDE.md](../GUIDE.md) を参照。
 
 ## 仕組み
 
@@ -131,7 +130,7 @@ Codex:  background 実行を開始 — ベースライン：47。反復中。
 
 ## 結果ログ
 
-各イテレーションは `research-results.tsv` に記録されます：
+各イテレーションは `autoresearch-results/results.tsv` に記録されます：
 
 ```
 iteration  commit   metric  delta   status    description
@@ -141,7 +140,7 @@ iteration  commit   metric  delta   status    description
 3          d4e5f6g  38      -3      keep      type-narrow API response handlers
 ```
 
-失敗した実験は git からリバートされますが、ログには残ります。ログが本当の監査証跡です。
+失敗した実験は git からリバートされますが、ログには残ります。ログが本当の監査証跡であり、`autoresearch-results/state.json` は再開用スナップショットです。
 
 ## その他の機能
 
@@ -164,7 +163,7 @@ iteration  commit   metric  delta   status    description
 
 **どうやって止める？** Foreground：Codex を中断。Background：`$codex-autoresearch` で停止を依頼。
 
-**中断後に再開できる？** はい。`autoresearch-state.json` から自動的に再開します。
+**中断後に再開できる？** はい。`autoresearch-results/state.json` から自動的に再開します。
 
 **CI で使うには？** `Mode: exec` と `codex exec`。全設定を事前に指定、JSON 出力、終了コード 0/1/2。
 

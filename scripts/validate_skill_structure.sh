@@ -15,9 +15,9 @@ required_paths=(
   "$ROOT/agents/openai.yaml"
   "$ROOT/tests"
   "$ROOT/tests/e2e-fixtures"
-  "$ROOT/tests/e2e-fixtures/exec_marker_reduction/autoresearch-lessons.md"
-  "$ROOT/tests/e2e-fixtures/exec_marker_reduction/autoresearch-state.json"
-  "$ROOT/tests/e2e-fixtures/exec_marker_reduction/research-results.tsv"
+  "$ROOT/tests/e2e-fixtures/exec_marker_reduction/autoresearch-results/lessons.md"
+  "$ROOT/tests/e2e-fixtures/exec_marker_reduction/autoresearch-results/state.json"
+  "$ROOT/tests/e2e-fixtures/exec_marker_reduction/autoresearch-results/results.tsv"
 )
 
 # Core reference files

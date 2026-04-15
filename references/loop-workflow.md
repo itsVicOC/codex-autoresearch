@@ -17,7 +17,7 @@ Iterate toward a measurable outcome by making one focused change, verifying mech
 ## Runtime Cycle
 
 1. Read the current in-scope context, recent results rows, and relevant retained state.
-2. If no baseline exists yet, measure it and initialize `research-results.tsv` plus `autoresearch-state.json`.
+2. If no baseline exists yet, measure it and initialize `autoresearch-results/results.tsv` plus `autoresearch-results/state.json`.
 3. Choose one focused hypothesis.
 4. Make one focused change within scope.
 5. Run the verify command and guard.

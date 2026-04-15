@@ -77,7 +77,15 @@ copy_skill() {
   local dest_skill_root="$1"
   mkdir -p "$(dirname "$dest_skill_root")"
   cp -R "$ROOT" "$dest_skill_root"
-  rm -rf "$dest_skill_root/.git"
+  rm -rf \
+    "$dest_skill_root/.git" \
+    "$dest_skill_root/.pytest_cache" \
+    "$dest_skill_root/.venv" \
+    "$dest_skill_root/autoresearch-results" \
+    "$dest_skill_root/debug" \
+    "$dest_skill_root/fix" \
+    "$dest_skill_root/security" \
+    "$dest_skill_root/ship"
   find "$dest_skill_root" -type d -name '__pycache__' -prune -exec rm -rf {} +
 }
 
@@ -141,6 +149,23 @@ cleanup_if_requested() {
   fi
 }
 
+sha256_file() {
+  local path="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$path" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$path" | awk '{print $1}'
+  else
+    python3 - "$path" <<'PY'
+import hashlib
+import sys
+
+with open(sys.argv[1], "rb") as handle:
+    print(hashlib.sha256(handle.read()).hexdigest())
+PY
+  fi
+}
+
 run_exec_smoke() {
   require_tool codex
   require_tool python3
@@ -154,7 +179,7 @@ run_exec_smoke() {
   mkdir -p "$e2e_dir"
   last_message="$e2e_dir/last-message.txt"
   event_log="$e2e_dir/events.jsonl"
-  lessons_sha="$(sha256sum "$repo/autoresearch-lessons.md" | awk '{print $1}')"
+  lessons_sha="$(sha256_file "$repo/autoresearch-results/lessons.md")"
 
   codex_flags=(exec -C "$repo" --json --output-last-message "$last_message")
   if [[ "$DANGEROUS" -eq 1 ]]; then
@@ -208,7 +233,7 @@ $(sed 's/^/   /' "$repo/prompt.txt")
 
 4. Expected behavior after "go":
    - Codex stays in the same foreground session and iterates live.
-   - Codex does not create autoresearch-launch.json, autoresearch-runtime.json, or autoresearch-runtime.log.
+   - Codex does not create autoresearch-results/launch.json, autoresearch-results/runtime.json, or autoresearch-results/runtime.log.
    - It iterates autonomously until tests pass or you interrupt it.
 
 5. After you stop the run, validate artifacts:
@@ -232,6 +257,7 @@ run_runtime_smoke() {
 
   python3 "$skill_root/scripts/autoresearch_runtime_ctl.py" launch \
     --repo "$repo" \
+    --workspace-root "$repo" \
     --original-goal "Reduce failing tests in this repo" \
     --mode loop \
     --goal "Reduce failing tests" \

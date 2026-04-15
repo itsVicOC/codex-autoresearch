@@ -28,12 +28,14 @@ STOP_STATUS_MESSAGE = "codex-autoresearch Stop hook"
 SESSION_TIMEOUT_SECONDS = 5
 STOP_TIMEOUT_SECONDS = 10
 HELPER_BUNDLE_SCRIPT_NAMES = (
+    "autoresearch_acceptance.py",
     "autoresearch_supervisor_status.py",
     "autoresearch_helpers.py",
     "autoresearch_artifacts.py",
     "autoresearch_core.py",
     "autoresearch_paths.py",
     "autoresearch_repo_targets.py",
+    "autoresearch_workspace.py",
 )
 
 

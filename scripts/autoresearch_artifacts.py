@@ -398,10 +398,16 @@ def config_from_results_metadata(metadata: dict[str, str]) -> dict[str, Any]:
         config["direction"] = direction
 
     field_map = {
+        "workspace_root": "workspace_root",
+        "artifact_root": "artifact_root",
+        "primary_repo": "primary_repo",
         "goal": "goal",
         "scope": "scope",
         "metric": "metric",
         "verify": "verify",
+        "verify_cwd": "verify_cwd",
+        "verify_format": "verify_format",
+        "primary_metric_key": "primary_metric_key",
         "guard": "guard",
         "parallel": "parallel_mode",
         "web_search": "web_search",
@@ -457,6 +463,20 @@ def config_from_results_metadata(metadata: dict[str, str]) -> dict[str, Any]:
     if required_keep_labels:
         config["required_keep_labels"] = required_keep_labels
 
+    acceptance_json = metadata.get("acceptance_criteria_json")
+    if acceptance_json:
+        try:
+            config["acceptance_criteria"] = json.loads(acceptance_json)
+        except json.JSONDecodeError:
+            pass
+
+    required_keep_json = metadata.get("required_keep_criteria_json")
+    if required_keep_json:
+        try:
+            config["required_keep_criteria"] = json.loads(required_keep_json)
+        except json.JSONDecodeError:
+            pass
+
     return config
 
 
@@ -496,6 +516,20 @@ def build_state_payload(
         },
         "updated_at": utc_now(),
     }
+    current_metrics = summary.get("current_metrics")
+    if isinstance(current_metrics, dict) and current_metrics:
+        payload["state"]["current_metrics"] = deepcopy(current_metrics)
+    last_trial_metrics = summary.get("last_trial_metrics")
+    if isinstance(last_trial_metrics, dict) and last_trial_metrics:
+        payload["state"]["last_trial_metrics"] = deepcopy(last_trial_metrics)
+    for field_name in (
+        "current_acceptance",
+        "last_trial_acceptance",
+        "current_required_keep_satisfied",
+        "last_trial_required_keep_satisfied",
+    ):
+        if field_name in summary:
+            payload["state"][field_name] = bool(summary[field_name])
     last_repo_commits = summary.get("last_repo_commits")
     if isinstance(last_repo_commits, dict) and last_repo_commits:
         payload["state"]["last_repo_commits"] = deepcopy(last_repo_commits)

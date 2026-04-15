@@ -9,13 +9,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from autoresearch_core import (
+    LAUNCH_MANIFEST_NAME,
+    RESULTS_FILE_NAME,
+    RUNTIME_STATE_NAME,
+    STATE_FILE_NAME,
+)
 from autoresearch_hook_context import load_hook_context_pointer
+from autoresearch_workspace import default_workspace_artifacts
 
 
 MARKER_FILES = (
-    "autoresearch-launch.json",
-    "autoresearch-runtime.json",
-    "autoresearch-state.json",
+    LAUNCH_MANIFEST_NAME,
+    RUNTIME_STATE_NAME,
+    STATE_FILE_NAME,
 )
 HELPER_ROOT_RELATIVE_CANDIDATES = (
     Path(".agents/skills/codex-autoresearch"),
@@ -42,7 +49,7 @@ HOOK_RUNTIME_PATH_ENV = "AUTORESEARCH_HOOK_RUNTIME_PATH"
 
 @dataclass(frozen=True)
 class HookArtifactPaths:
-    results_path: Path
+    results_path: Path | None
     state_path: Path | None
     launch_path: Path | None
     runtime_path: Path | None
@@ -74,7 +81,7 @@ class HookContext:
             return True
         if paths.state_path is not None and paths.state_path.exists():
             return True
-        return results_log_looks_autoresearch(paths.results_path)
+        return paths.results_path is not None and results_log_looks_autoresearch(paths.results_path)
 
 
 def load_input() -> dict[str, object]:
@@ -199,42 +206,78 @@ def _coalesce_path(
     repo: Path,
     env_name: str,
     pointer_path: Path | None,
-    default_name: str,
-) -> Path:
+    default_name: str | None = None,
+) -> Path | None:
     raw = os.environ.get(env_name)
     if raw:
-        return resolve_repo_relative(repo, raw, default_name)
+        return resolve_repo_relative(repo, raw, default_name or raw)
     if pointer_path is not None:
         return pointer_path
-    return resolve_repo_relative(repo, None, default_name)
+    if default_name is not None:
+        return resolve_repo_relative(repo, None, default_name)
+    return None
 
 
 def resolve_artifact_paths(repo: Path) -> tuple[HookArtifactPaths, bool | None]:
     pointer = load_hook_context_pointer(repo)
+    has_env_artifact_paths = any(
+        os.environ.get(name)
+        for name in (
+            HOOK_RESULTS_PATH_ENV,
+            HOOK_STATE_PATH_ENV,
+            HOOK_LAUNCH_PATH_ENV,
+            HOOK_RUNTIME_PATH_ENV,
+        )
+    )
+    if pointer is None and not has_env_artifact_paths:
+        return HookArtifactPaths(
+            results_path=None,
+            state_path=None,
+            launch_path=None,
+            runtime_path=None,
+        ), None
+
+    default_artifacts = default_workspace_artifacts(pointer.workspace_root if pointer is not None else repo)
     return HookArtifactPaths(
         results_path=_coalesce_path(
-            repo=repo,
+            repo=default_artifacts.workspace_root,
             env_name=HOOK_RESULTS_PATH_ENV,
             pointer_path=pointer.results_path if pointer is not None else None,
-            default_name="research-results.tsv",
+            default_name=(
+                str(default_artifacts.results_path.relative_to(default_artifacts.workspace_root))
+                if pointer is not None
+                else None
+            ),
         ),
         state_path=_coalesce_path(
-            repo=repo,
+            repo=default_artifacts.workspace_root,
             env_name=HOOK_STATE_PATH_ENV,
             pointer_path=pointer.state_path if pointer is not None else None,
-            default_name="autoresearch-state.json",
+            default_name=(
+                str(default_artifacts.state_path.relative_to(default_artifacts.workspace_root))
+                if pointer is not None
+                else None
+            ),
         ),
         launch_path=_coalesce_path(
-            repo=repo,
+            repo=default_artifacts.workspace_root,
             env_name=HOOK_LAUNCH_PATH_ENV,
             pointer_path=pointer.launch_path if pointer is not None else None,
-            default_name="autoresearch-launch.json",
+            default_name=(
+                str(default_artifacts.launch_path.relative_to(default_artifacts.workspace_root))
+                if pointer is not None
+                else None
+            ),
         ),
         runtime_path=_coalesce_path(
-            repo=repo,
+            repo=default_artifacts.workspace_root,
             env_name=HOOK_RUNTIME_PATH_ENV,
             pointer_path=pointer.runtime_path if pointer is not None else None,
-            default_name="autoresearch-runtime.json",
+            default_name=(
+                str(default_artifacts.runtime_path.relative_to(default_artifacts.workspace_root))
+                if pointer is not None
+                else None
+            ),
         ),
     ), (pointer.active if pointer is not None else None)
 

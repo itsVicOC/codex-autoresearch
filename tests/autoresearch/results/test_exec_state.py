@@ -17,8 +17,8 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
     def test_exec_mode_uses_scratch_state_and_cleanup(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
-            results_path = tmpdir / "research-results.tsv"
-            repo_state_path = tmpdir / "autoresearch-state.json"
+            results_path = tmpdir / "autoresearch-results/results.tsv"
+            repo_state_path = tmpdir / "autoresearch-results/state.json"
             scratch_state_path = Path(
                 self.run_script_text(
                     "autoresearch_exec_state.py",
@@ -90,7 +90,7 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
     def test_exec_record_iteration_rebuilds_missing_scratch_state_from_results_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
-            results_path = tmpdir / "research-results.tsv"
+            results_path = tmpdir / "autoresearch-results/results.tsv"
             scratch_state_path = Path(
                 self.run_script_text(
                     "autoresearch_exec_state.py",
@@ -170,20 +170,26 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
 
     def test_exec_rebuild_preserves_multi_repo_targets_from_results_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            tmpdir = Path(tmp)
-            companion = tmpdir / "companion"
-            companion.mkdir()
-            results_path = tmpdir / "research-results.tsv"
+            workspace = Path(tmp)
+            primary = workspace / "primary"
+            companion = workspace / "companion"
+            self.init_git_repo(primary)
+            self.init_git_repo(companion)
+            results_path = self.managed_results_path(workspace)
             scratch_state_path = Path(
                 self.run_script_text(
                     "autoresearch_exec_state.py",
                     "--repo-root",
-                    str(tmpdir),
+                    str(workspace),
                 )
             )
 
             self.run_script(
                 "autoresearch_init_run.py",
+                "--repo",
+                str(primary),
+                "--workspace-root",
+                str(workspace),
                 "--results-path",
                 str(results_path),
                 "--mode",
@@ -206,7 +212,7 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
                 "base111",
                 "--baseline-description",
                 "baseline latency",
-                cwd=tmpdir,
+                cwd=primary,
             )
             scratch_state_path.unlink()
 
@@ -226,7 +232,7 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
                 "pass",
                 "--description",
                 "optimized both repos",
-                cwd=tmpdir,
+                cwd=primary,
             )
 
             self.assertEqual(result["status"], "keep")
@@ -242,7 +248,7 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
     def test_resume_check_defaults_to_exec_scratch_when_log_declares_exec_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
-            results_path = tmpdir / "research-results.tsv"
+            results_path = tmpdir / "autoresearch-results/results.tsv"
             scratch_state_path = Path(
                 self.run_script_text(
                     "autoresearch_exec_state.py",
@@ -349,10 +355,11 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             subprocess.run(["git", "init", str(repo)], check=True, capture_output=True, text=True)
-            results_path = repo / "research-results.tsv"
-            repo_state_path = repo / "autoresearch-state.json"
-            prev_results_path = repo / "research-results.prev.tsv"
-            prev_state_path = repo / "autoresearch-state.prev.json"
+            results_path = repo / "autoresearch-results/results.tsv"
+            repo_state_path = repo / "autoresearch-results/state.json"
+            prev_results_path = repo / "autoresearch-results/results.prev.tsv"
+            prev_state_path = repo / "autoresearch-results/state.prev.json"
+            results_path.parent.mkdir(parents=True, exist_ok=True)
 
             results_path.write_text("legacy results\n", encoding="utf-8")
             repo_state_path.write_text('{"legacy": true}\n', encoding="utf-8")
@@ -397,9 +404,10 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
             subprocess.run(["git", "init", str(repo)], check=True, capture_output=True, text=True)
             subdir = repo / "sub"
             subdir.mkdir()
-            repo_state_path = repo / "autoresearch-state.json"
-            prev_state_path = repo / "autoresearch-state.prev.json"
-            sub_results_path = subdir / "research-results.tsv"
+            repo_state_path = repo / "autoresearch-results/state.json"
+            prev_state_path = repo / "autoresearch-results/state.prev.json"
+            results_path = repo / "autoresearch-results/results.tsv"
+            repo_state_path.parent.mkdir(parents=True, exist_ok=True)
 
             repo_state_path.write_text('{"legacy": true}\n', encoding="utf-8")
 
@@ -428,7 +436,7 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
                 cwd=subdir,
             )
 
-            self.assertTrue(sub_results_path.exists())
+            self.assertTrue(results_path.exists())
             self.assertFalse(repo_state_path.exists())
             self.assertTrue(prev_state_path.exists())
             self.assertEqual(prev_state_path.read_text(encoding="utf-8"), '{"legacy": true}\n')
@@ -467,12 +475,12 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
             self.assertEqual(completed.returncode, 2)
             self.assertIn("Exec prelaunch failed", completed.stderr)
             self.assertIn("unexpected worktree changes before launch", completed.stderr)
-            self.assertFalse((repo / "research-results.tsv").exists())
+            self.assertFalse((repo / "autoresearch-results/results.tsv").exists())
 
     def test_record_iteration_does_not_use_exec_scratch_for_loop_log(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
-            results_path = tmpdir / "research-results.tsv"
+            results_path = tmpdir / "autoresearch-results/results.tsv"
             scratch_state_path = Path(
                 self.run_script_text(
                     "autoresearch_exec_state.py",
@@ -480,6 +488,7 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
                     str(tmpdir),
                 )
             )
+            results_path.parent.mkdir(parents=True, exist_ok=True)
 
             results_path.write_text(
                 "\n".join(
@@ -546,14 +555,14 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
                 cwd=tmpdir,
             )
             self.assertNotEqual(completed.returncode, 0)
-            self.assertIn("Missing JSON file", completed.stderr)
+            self.assertIn("Cannot resolve autoresearch artifact root", completed.stderr)
 
     def test_record_iteration_uses_repo_state_for_absolute_results_path_outside_repo_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             subprocess.run(["git", "init", str(repo)], check=True, capture_output=True, text=True)
-            results_path = repo / "research-results.tsv"
-            state_path = repo / "autoresearch-state.json"
+            results_path = repo / "autoresearch-results/results.tsv"
+            state_path = repo / "autoresearch-results/state.json"
             self.run_script(
                 "autoresearch_init_run.py",
                 "--results-path",
@@ -595,7 +604,7 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
                 "reduced failures",
                 cwd=REPO_ROOT.parent,
             )
-            self.assertEqual(result["state_path"], str(state_path))
+            self.assertEqual(Path(str(result["state_path"])).resolve(), state_path.resolve())
             state = json.loads(state_path.read_text(encoding="utf-8"))
             self.assertEqual(state["state"]["iteration"], 1)
             self.assertEqual(state["state"]["current_metric"], 8)

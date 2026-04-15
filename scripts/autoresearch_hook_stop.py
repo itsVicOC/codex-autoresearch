@@ -26,10 +26,14 @@ FOLLOWUP_CONTINUATION_PROMPT = (
 def run_supervisor(context) -> dict[str, object] | None:
     if context.helper_root is None:
         return None
+    if context.artifacts.results_path is None:
+        return None
     helper = context.helper_root / "autoresearch_supervisor_status.py"
     command = [
         sys.executable,
         str(helper),
+        "--repo",
+        str(context.repo),
         "--results-path",
         str(context.artifacts.results_path),
     ]

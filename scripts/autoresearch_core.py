@@ -22,12 +22,17 @@ HEADER = [
 ]
 SESSION_MODE_CHOICES = ("foreground", "background")
 EXEC_SCRATCH_ROOT = Path("/tmp/codex-autoresearch-exec")
-LAUNCH_MANIFEST_NAME = "autoresearch-launch.json"
-RUNTIME_STATE_NAME = "autoresearch-runtime.json"
-RUNTIME_LOG_NAME = "autoresearch-runtime.log"
-LESSONS_FILE_NAME = "autoresearch-lessons.md"
-HOOK_CONTEXT_NAME = "autoresearch-hook-context.json"
-AUTORESEARCH_OWNED_BASENAMES = {
+ARTIFACT_DIR_NAME = "autoresearch-results"
+RESULTS_FILE_NAME = "results.tsv"
+STATE_FILE_NAME = "state.json"
+LAUNCH_MANIFEST_NAME = "launch.json"
+RUNTIME_STATE_NAME = "runtime.json"
+RUNTIME_LOG_NAME = "runtime.log"
+LESSONS_FILE_NAME = "lessons.md"
+HOOK_CONTEXT_NAME = "context.json"
+POINTER_DIR_NAME = "codex-autoresearch"
+POINTER_FILE_NAME = "pointer.json"
+LEGACY_AUTORESEARCH_OWNED_BASENAMES = {
     "research-results.tsv",
     "autoresearch-state.json",
     "autoresearch-launch.json",
@@ -35,6 +40,17 @@ AUTORESEARCH_OWNED_BASENAMES = {
     "autoresearch-runtime.log",
     "autoresearch-lessons.md",
     "autoresearch-hook-context.json",
+}
+AUTORESEARCH_OWNED_BASENAMES = {
+    ARTIFACT_DIR_NAME,
+    RESULTS_FILE_NAME,
+    STATE_FILE_NAME,
+    LAUNCH_MANIFEST_NAME,
+    RUNTIME_STATE_NAME,
+    RUNTIME_LOG_NAME,
+    LESSONS_FILE_NAME,
+    HOOK_CONTEXT_NAME,
+    *LEGACY_AUTORESEARCH_OWNED_BASENAMES,
 }
 
 MAIN_LABEL_RE = re.compile(r"^(0|[1-9]\d*)$")
