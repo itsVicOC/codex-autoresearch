@@ -772,7 +772,8 @@ class AutoresearchExecStateTest(AutoresearchScriptsTestBase):
                 cwd=tmpdir,
             )
             self.assertNotEqual(completed.returncode, 0)
-            self.assertIn("Cannot resolve autoresearch artifact root", completed.stderr)
+            self.assertIn("Missing JSON file:", completed.stderr)
+            self.assertIn("autoresearch-results/state.json", completed.stderr)
 
     def test_record_iteration_uses_repo_state_for_absolute_results_path_outside_repo_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

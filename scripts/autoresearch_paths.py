@@ -266,12 +266,25 @@ def _state_path_from_results_metadata(metadata: dict[str, str]) -> Path | None:
     return None
 
 
+def _state_path_from_results_path(results_path: Path | None) -> Path | None:
+    if results_path is None:
+        return None
+    candidate = results_path.expanduser()
+    if candidate.name != RESULTS_FILE_NAME:
+        return None
+    artifact_root = candidate.parent
+    if artifact_root.name != ARTIFACT_DIR_NAME:
+        return None
+    return (artifact_root / STATE_FILE_NAME).resolve()
+
+
 def resolve_state_path_for_log(
     requested_path: str | None,
     parsed: ParsedLog | dict[str, str] | None,
     *,
     cwd: Path | None = None,
     default_path: Path | None = None,
+    results_path: Path | None = None,
 ) -> Path:
     if isinstance(parsed, ParsedLog):
         metadata = parsed.metadata
@@ -289,6 +302,10 @@ def resolve_state_path_for_log(
 
     if default_path is not None:
         return default_path.resolve()
+
+    derived_state_path = _state_path_from_results_path(results_path)
+    if derived_state_path is not None:
+        return derived_state_path
 
     if cwd is not None:
         return default_state_path(cwd)

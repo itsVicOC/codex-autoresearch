@@ -394,6 +394,7 @@ def evaluate_supervisor_status(
         None,
         cwd=Path.cwd(),
         default_path=default_state_path,
+        results_path=results_path,
     )
     try:
         parsed = parse_results_log(results_path)
@@ -402,6 +403,7 @@ def evaluate_supervisor_status(
             parsed,
             cwd=Path.cwd(),
             default_path=default_state_path,
+            results_path=results_path,
         )
         payload = read_state_payload(state_path)
     except AutoresearchError as exc:

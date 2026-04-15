@@ -14,12 +14,29 @@ from autoresearch_helpers import (
     default_exec_state_path,
     default_workspace_artifacts,
     improvement,
-    load_repo_pointer,
+    load_context_for_repo,
     log_summary,
     parse_results_log,
     read_launch_manifest,
     read_runtime_payload,
 )
+
+
+def resolve_workspace_context_for_repo(repo: Path, *, mode_name: str):
+    """Resolve the managed workspace context for invariant checks.
+
+    Real managed runs in git repos must persist a valid git-local pointer plus
+    canonical context. Lightweight fixture tests may still use non-git temp
+    directories and validate repo-local artifacts directly.
+    """
+    context = load_context_for_repo(repo)
+    if context is not None:
+        return context.workspace_root, context
+    if (repo / ".git").exists():
+        raise AutoresearchError(
+            f"{mode_name} invariants require a valid git-local pointer and canonical context for {repo}."
+        )
+    return repo, None
 
 
 BUNDLED_HELPER_RE = re.compile(
@@ -250,21 +267,20 @@ def validate_exec_completion_payload(last_message_path: Path) -> dict[str, objec
 
 
 def validate_exec(repo: Path, args: argparse.Namespace) -> None:
-    artifacts = default_workspace_artifacts(repo)
+    workspace_root, _ = resolve_workspace_context_for_repo(repo, mode_name="exec")
+    artifacts = default_workspace_artifacts(workspace_root)
     results_path = artifacts.results_path
     context_path = artifacts.context_path
     prev_results_path = results_path.with_name("results.prev.tsv")
     state_path = artifacts.state_path
     prev_state_path = state_path.with_name("state.prev.json")
     lessons_path = artifacts.lessons_path
-    scratch_state_path = default_exec_state_path(repo)
+    scratch_state_path = default_exec_state_path(workspace_root)
 
     if not results_path.exists():
         raise AutoresearchError("exec run did not produce autoresearch-results/results.tsv")
     if not context_path.exists():
         raise AutoresearchError("exec run did not persist autoresearch-results/context.json")
-    if (repo / ".git").exists() and load_repo_pointer(repo) is None:
-        raise AutoresearchError("exec run did not persist a valid git-local pointer for the workspace context")
 
     parsed = parse_results_log(results_path)
     direction = parsed.metadata.get("metric_direction")
@@ -312,7 +328,8 @@ def validate_exec(repo: Path, args: argparse.Namespace) -> None:
 
 
 def validate_interactive(repo: Path, args: argparse.Namespace) -> None:
-    artifacts = default_workspace_artifacts(repo)
+    workspace_root, context = resolve_workspace_context_for_repo(repo, mode_name="interactive")
+    artifacts = default_workspace_artifacts(workspace_root)
     results_path = artifacts.results_path
     state_path = artifacts.state_path
     lessons_path = artifacts.lessons_path
@@ -353,9 +370,10 @@ def validate_interactive(repo: Path, args: argparse.Namespace) -> None:
     if not lessons_path.read_text(encoding="utf-8").strip():
         raise AutoresearchError("interactive run left autoresearch-results/lessons.md empty")
 
+    verify_root = workspace_root if context is not None and context.verify_cwd == "workspace_root" else repo
     completed = subprocess.run(
         args.verify_cmd,
-        cwd=repo,
+        cwd=verify_root,
         shell=True,
         capture_output=True,
         text=True,
@@ -370,7 +388,8 @@ def validate_interactive(repo: Path, args: argparse.Namespace) -> None:
 
 
 def validate_runtime(repo: Path, args: argparse.Namespace) -> None:
-    artifacts = default_workspace_artifacts(repo)
+    workspace_root, _ = resolve_workspace_context_for_repo(repo, mode_name="runtime")
+    artifacts = default_workspace_artifacts(workspace_root)
     launch_path = artifacts.launch_path
     runtime_path = artifacts.runtime_path
 

@@ -288,6 +288,7 @@ def runtime_summary(
         None,
         cwd=repo,
         default_path=resolved_default_state_path,
+        results_path=results_path,
     )
 
     if runtime_error is not None:

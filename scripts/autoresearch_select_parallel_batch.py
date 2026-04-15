@@ -127,7 +127,12 @@ def main() -> int:
 
     results_path = Path(args.results_path)
     parsed = parse_results_log(results_path)
-    state_path = resolve_state_path_for_log(args.state_path, parsed, cwd=Path.cwd())
+    state_path = resolve_state_path_for_log(
+        args.state_path,
+        parsed,
+        cwd=Path.cwd(),
+        results_path=results_path,
+    )
     _, payload, reconstructed, direction = require_consistent_state(
         results_path,
         state_path,

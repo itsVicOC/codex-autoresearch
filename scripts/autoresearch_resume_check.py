@@ -117,6 +117,7 @@ def evaluate_resume_state(
         parsed or metadata,
         cwd=Path.cwd(),
         default_path=default_state_path,
+        results_path=results_path,
     )
     state_exists = state_path.exists()
 
